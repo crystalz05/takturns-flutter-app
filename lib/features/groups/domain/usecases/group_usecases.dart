@@ -1,107 +1,202 @@
+import 'package:dartz/dartz.dart';
+import 'package:takturns_flutter_app/core/usecases/usecase.dart'; // Adjust path to your base Usecase file
+import 'package:takturns_flutter_app/core/errors/failures.dart';
 import 'package:takturns_flutter_app/features/groups/domain/entities/cycle_progress.dart';
 import 'package:takturns_flutter_app/features/groups/domain/entities/group.dart';
 import 'package:takturns_flutter_app/features/groups/domain/entities/member.dart';
 import 'package:takturns_flutter_app/features/groups/domain/repositories/group_repository.dart';
 
-class CreateGroup {
+// ─── Create Group ────────────────────────────────────────────────────────────
+class CreateGroup implements Usecase<String, CreateGroupParams> {
   final GroupRepository repo;
   CreateGroup(this.repo);
-  Future<String> call({
-    required int minGrade,
-    required BigInt contributionAmount,
-    required BigInt cycleDuration,
-    required int maxMembers,
-    required String token,
-  }) => repo.createGroup(
-    minGrade: minGrade,
-    contributionAmount: contributionAmount,
-    cycleDuration: cycleDuration,
-    maxMembers: maxMembers,
-    token: token,
-  );
+
+  @override
+  Future<Either<Failure, String>> call(CreateGroupParams params) {
+    return repo.createGroup(
+      minGrade: params.minGrade,
+      contributionAmount: params.contributionAmount,
+      cycleDuration: params.cycleDuration,
+      maxMembers: params.maxMembers,
+      token: params.token,
+    );
+  }
 }
 
-class GetCollateralAmount {
+class CreateGroupParams {
+  final int minGrade;
+  final BigInt contributionAmount;
+  final BigInt cycleDuration;
+  final int maxMembers;
+  final String token;
+
+  const CreateGroupParams({
+    required this.minGrade,
+    required this.contributionAmount,
+    required this.cycleDuration,
+    required this.maxMembers,
+    required this.token,
+  });
+}
+
+// ─── Get Collateral Amount ───────────────────────────────────────────────────
+class GetCollateralAmount implements Usecase<BigInt, GetCollateralParams> {
   final GroupRepository repo;
   GetCollateralAmount(this.repo);
-  Future<BigInt> call({required BigInt contribution, required int minGrade}) =>
-      repo.getCollateralAmount(contribution: contribution, minGrade: minGrade);
+
+  @override
+  Future<Either<Failure, BigInt>> call(GetCollateralParams params) {
+    return repo.getCollateralAmount(
+      contribution: params.contribution,
+      minGrade: params.minGrade,
+    );
+  }
 }
 
-class ApproveUsdc {
+class GetCollateralParams {
+  final BigInt contribution;
+  final int minGrade;
+
+  const GetCollateralParams({required this.contribution, required this.minGrade});
+}
+
+// ─── Approve USDC ─────────────────────────────────────────────────────────────
+class ApproveUsdc implements Usecase<void, ApproveUsdcParams> {
   final GroupRepository repo;
   ApproveUsdc(this.repo);
-  Future<void> call({required String spender, required BigInt amount}) =>
-      repo.approveUsdc(spender: spender, amount: amount);
+
+  @override
+  Future<Either<Failure, void>> call(ApproveUsdcParams params) {
+    return repo.approveUsdc(spender: params.spender, amount: params.amount);
+  }
 }
 
-class JoinGroup {
+class ApproveUsdcParams {
+  final String spender;
+  final BigInt amount;
+
+  const ApproveUsdcParams({required this.spender, required this.amount});
+}
+
+// ─── Join Group ──────────────────────────────────────────────────────────────
+class JoinGroup implements Usecase<void, String> {
   final GroupRepository repo;
   JoinGroup(this.repo);
-  Future<void> call(String groupAddress) => repo.joinGroup(groupAddress);
+
+  @override
+  Future<Either<Failure, void>> call(String groupAddress) => repo.joinGroup(groupAddress);
 }
 
-class StartGroup {
+// ─── Start Group ─────────────────────────────────────────────────────────────
+class StartGroup implements Usecase<void, String> {
   final GroupRepository repo;
   StartGroup(this.repo);
-  Future<void> call(String groupAddress) => repo.startGroup(groupAddress);
+
+  @override
+  Future<Either<Failure, void>> call(String groupAddress) => repo.startGroup(groupAddress);
 }
 
-class Contribute {
+// ─── Contribute ──────────────────────────────────────────────────────────────
+class Contribute implements Usecase<void, String> {
   final GroupRepository repo;
   Contribute(this.repo);
-  Future<void> call(String groupAddress) => repo.contribute(groupAddress);
+
+  @override
+  Future<Either<Failure, void>> call(String groupAddress) => repo.contribute(groupAddress);
 }
 
-class FlagDefaulter {
+// ─── Flag Defaulter ──────────────────────────────────────────────────────────
+class FlagDefaulter implements Usecase<void, FlagDefaulterParams> {
   final GroupRepository repo;
   FlagDefaulter(this.repo);
-  Future<void> call({
-    required String groupAddress,
-    required String memberAddress,
-  }) => repo.flagDefaulter(groupAddress: groupAddress, memberAddress: memberAddress);
+
+  @override
+  Future<Either<Failure, void>> call(FlagDefaulterParams params) {
+    return repo.flagDefaulter(
+      groupAddress: params.groupAddress,
+      memberAddress: params.memberAddress,
+    );
+  }
 }
 
-class CastVote {
+class FlagDefaulterParams {
+  final String groupAddress;
+  final String memberAddress;
+
+  const FlagDefaulterParams({required this.groupAddress, required this.memberAddress});
+}
+
+// ─── Cast Vote ───────────────────────────────────────────────────────────────
+class CastVote implements Usecase<void, CastVoteParams> {
   final GroupRepository repo;
   CastVote(this.repo);
-  Future<void> call({required String groupAddress, required int vote}) =>
-      repo.castVote(groupAddress: groupAddress, vote: vote);
+
+  @override
+  Future<Either<Failure, void>> call(CastVoteParams params) {
+    return repo.castVote(groupAddress: params.groupAddress, vote: params.vote);
+  }
 }
 
-class ResolveVote {
+class CastVoteParams {
+  final String groupAddress;
+  final int vote;
+
+  const CastVoteParams({required this.groupAddress, required this.vote});
+}
+
+// ─── Resolve Vote ────────────────────────────────────────────────────────────
+class ResolveVote implements Usecase<void, String> {
   final GroupRepository repo;
   ResolveVote(this.repo);
-  Future<void> call(String groupAddress) => repo.resolveVote(groupAddress);
+
+  @override
+  Future<Either<Failure, void>> call(String groupAddress) => repo.resolveVote(groupAddress);
 }
 
-class GetGroupDetails {
+// ─── Get Group Details ───────────────────────────────────────────────────────
+class GetGroupDetails implements Usecase<Group, String> {
   final GroupRepository repo;
   GetGroupDetails(this.repo);
-  Future<Group> call(String groupAddress) => repo.getGroupDetails(groupAddress);
+
+  @override
+  Future<Either<Failure, Group>> call(String groupAddress) => repo.getGroupDetails(groupAddress);
 }
 
-class GetCycleProgress {
+// ─── Get Cycle Progress ──────────────────────────────────────────────────────
+class GetCycleProgress implements Usecase<CycleProgress, String> {
   final GroupRepository repo;
   GetCycleProgress(this.repo);
-  Future<CycleProgress> call(String groupAddress) =>
-      repo.getCycleProgress(groupAddress);
+
+  @override
+  Future<Either<Failure, CycleProgress>> call(String groupAddress) => repo.getCycleProgress(groupAddress);
 }
 
-class GetMembers {
+// ─── Get Members ─────────────────────────────────────────────────────────────
+class GetMembers implements Usecase<List<Member>, String> {
   final GroupRepository repo;
   GetMembers(this.repo);
-  Future<List<Member>> call(String groupAddress) => repo.getMembers(groupAddress);
+
+  @override
+  Future<Either<Failure, List<Member>>> call(String groupAddress) => repo.getMembers(groupAddress);
 }
 
-class HasContributed {
+// ─── Has Contributed ─────────────────────────────────────────────────────────
+class HasContributed implements Usecase<bool, HasContributedParams> {
   final GroupRepository repo;
   HasContributed(this.repo);
-  Future<bool> call({
-    required String groupAddress,
-    required String memberAddress,
-  }) => repo.hasContributed(
-    groupAddress: groupAddress,
-    memberAddress: memberAddress,
-  );
+
+  @override
+  Future<Either<Failure, bool>> call(HasContributedParams params) {
+    return repo.hasContributed(
+      groupAddress: params.groupAddress,
+      memberAddress: params.memberAddress,
+    );
+  }
+}
+
+class HasContributedParams {
+  final String groupAddress;
+  final String memberAddress;
+
+  const HasContributedParams({required this.groupAddress, required this.memberAddress});
 }

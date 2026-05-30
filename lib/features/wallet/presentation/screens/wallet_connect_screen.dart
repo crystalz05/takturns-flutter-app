@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_bloc.dart';
 
@@ -15,12 +14,11 @@ class WalletConnectScreen extends StatefulWidget {
 }
 
 class _WalletConnectScreenState extends State<WalletConnectScreen> {
-  final _pkController = TextEditingController();
+  final _pkController = TextEditingController(text: "7ad85c6d7d3af578f92b17e016d37d54e09f1e2f216f0b536ce8d204841da2d3");
 
   @override
   void initState() {
     super.initState();
-    context.read<WalletBloc>().add(CheckStoredWalletEvent());
   }
 
   @override
@@ -34,9 +32,7 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
     return Scaffold(
       body: BlocConsumer<WalletBloc, WalletState>(
         listener: (context, state) {
-          if (state is WalletConnected) {
-            context.goNamed('home');
-          } else if (state is WalletError) {
+          if (state is WalletError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
             );

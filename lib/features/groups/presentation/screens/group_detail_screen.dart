@@ -3,7 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/core/utils/extensions.dart';
-import 'package:takturns_flutter_app/features/groups/presentation/blocs/group_detail_bloc.dart';
+import 'package:takturns_flutter_app/features/groups/presentation/blocs/group_detail/group_detail_bloc.dart';
+
+import '../blocs/group_detail/group_detail_event.dart';
+import '../blocs/group_detail/group_detail_state.dart';
 
 class GroupDetailScreen extends StatefulWidget {
   final String groupAddress;

@@ -4,6 +4,7 @@ import 'package:takturns_flutter_app/core/di/injection_container.dart';
 import 'package:takturns_flutter_app/core/router/app_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_bloc.dart';
+import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_event.dart';
 
 import 'features/home/presentation/bloc/home_bloc.dart';
 
@@ -20,12 +21,11 @@ class TakturnsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => sl<WalletBloc>()),
+        BlocProvider(create:  (_) => sl<WalletBloc>()..add(CheckStoredWalletEvent()), lazy: false),
         BlocProvider(create: (_) => sl<HomeBloc>())
       ],
       child: MaterialApp.router(
         title: 'TakTurns',
-        theme: AppTheme.dark,
         routerConfig: appRouter,
         debugShowCheckedModeBanner: false,
       ),

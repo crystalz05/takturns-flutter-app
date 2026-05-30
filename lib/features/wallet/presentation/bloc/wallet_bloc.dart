@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:takturns_flutter_app/features/wallet/domain/entities/wallet_info.dart';
@@ -29,6 +31,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       if(result.isRight()){
         final wallet = result.getOrElse(() => null);
         if (wallet != null) {
+          log("Checking auth $wallet", name: "Wallet block");
           emit(WalletConnected(wallet: wallet));
         } else {
           emit(WalletDisconnected());

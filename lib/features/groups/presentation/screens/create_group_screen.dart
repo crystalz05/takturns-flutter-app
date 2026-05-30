@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
-import 'package:takturns_flutter_app/features/groups/presentation/blocs/create_group_bloc.dart';
+import 'package:takturns_flutter_app/features/groups/presentation/blocs/create_group/create_group_bloc.dart';
 import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
+
+import '../blocs/create_group/create_group_event.dart';
+import '../blocs/create_group/create_group_state.dart';
 
 class CreateGroupScreen extends StatefulWidget {
   const CreateGroupScreen({super.key});

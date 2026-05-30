@@ -1,45 +1,28 @@
-import 'package:takturns_flutter_app/features/groups/domain/entities/cycle_progress.dart';
-import 'package:takturns_flutter_app/features/groups/domain/entities/group.dart';
-import 'package:takturns_flutter_app/features/groups/domain/entities/member.dart';
+import 'package:dartz/dartz.dart';
+import '../../../../core/errors/failures.dart';
+import '../entities/cycle_progress.dart';
+import '../entities/group.dart';
+import '../entities/member.dart';
 
 abstract class GroupRepository {
-  // Factory interactions
-  Future<String> createGroup({
+  Future<Either<Failure, String>> createGroup({
     required int minGrade,
     required BigInt contributionAmount,
     required BigInt cycleDuration,
     required int maxMembers,
     required String token,
   });
-
-  Future<BigInt> getCollateralAmount({
-    required BigInt contribution,
-    required int minGrade,
-  });
-
-  // Group interactions
-  Future<void> approveUsdc({
-    required String spender,
-    required BigInt amount,
-  });
-
-  Future<void> joinGroup(String groupAddress);
-  Future<void> startGroup(String groupAddress);
-  Future<void> contribute(String groupAddress);
-  Future<void> flagDefaulter({
-    required String groupAddress,
-    required String memberAddress,
-  });
-  Future<void> castVote({required String groupAddress, required int vote});
-  Future<void> resolveVote(String groupAddress);
-
-  // Queries
-  Future<Group> getGroupDetails(String groupAddress);
-  Future<CycleProgress> getCycleProgress(String groupAddress);
-  Future<List<Member>> getMembers(String groupAddress);
-  Future<bool> hasContributed({
-    required String groupAddress,
-    required String memberAddress,
-  });
-  Future<String> getCurrentRecipient(String groupAddress);
+  Future<Either<Failure, BigInt>> getCollateralAmount({required BigInt contribution, required int minGrade});
+  Future<Either<Failure, void>> approveUsdc({required String spender, required BigInt amount});
+  Future<Either<Failure, void>> joinGroup(String groupAddress);
+  Future<Either<Failure, void>> startGroup(String groupAddress);
+  Future<Either<Failure, void>> contribute(String groupAddress);
+  Future<Either<Failure, void>> flagDefaulter({required String groupAddress, required String memberAddress});
+  Future<Either<Failure, void>> castVote({required String groupAddress, required int vote});
+  Future<Either<Failure, void>> resolveVote(String groupAddress);
+  Future<Either<Failure, Group>> getGroupDetails(String groupAddress);
+  Future<Either<Failure, CycleProgress>> getCycleProgress(String groupAddress);
+  Future<Either<Failure, List<Member>>> getMembers(String groupAddress);
+  Future<Either<Failure, bool>> hasContributed({required String groupAddress, required String memberAddress});
+  Future<Either<Failure, String>> getCurrentRecipient(String groupAddress);
 }
