@@ -3,11 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/core/utils/extensions.dart';
-import 'package:takturns_flutter_app/features/groups/presentation/blocs/home_bloc.dart';
+import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_bloc.dart';
 
 import '../../../wallet/presentation/bloc/wallet_event.dart';
 import '../../../wallet/presentation/bloc/wallet_state.dart';
+import '../bloc/home_event.dart';
+import '../bloc/home_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

@@ -4,11 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/di/injection_container.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/create_group_bloc.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/group_detail_bloc.dart';
-import 'package:takturns_flutter_app/features/groups/presentation/blocs/home_bloc.dart';
+import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/join_group_bloc.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/screens/create_group_screen.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/screens/group_detail_screen.dart';
-import 'package:takturns_flutter_app/features/groups/presentation/screens/home_screen.dart';
+import 'package:takturns_flutter_app/features/home/presentation/screens/home_screen.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/screens/join_group_screen.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/screens/wallet_connect_screen.dart';
 

@@ -9,6 +9,7 @@ import 'package:takturns_flutter_app/features/groups/domain/repositories/group_r
 class GroupRepositoryImpl implements GroupRepository {
   final Web3Client _client;
   final EthPrivateKey Function() _getCredentials;
+  EthPrivateKey getCredentials() => _getCredentials();
 
   GroupRepositoryImpl(this._client, this._getCredentials);
 

@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/core/utils/extensions.dart';
-import 'package:takturns_flutter_app/features/groups/presentation/blocs/home_bloc.dart';
+import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/join_group_bloc.dart';
 
 class JoinGroupScreen extends StatefulWidget {

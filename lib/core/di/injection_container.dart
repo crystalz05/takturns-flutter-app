@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:takturns_flutter_app/features/home/home_injection.dart';
 import 'package:takturns_flutter_app/features/wallet/wallet_injection.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -10,7 +11,7 @@ import 'package:takturns_flutter_app/features/groups/domain/repositories/group_r
 import 'package:takturns_flutter_app/features/groups/domain/usecases/group_usecases.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/create_group_bloc.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/group_detail_bloc.dart';
-import 'package:takturns_flutter_app/features/groups/presentation/blocs/home_bloc.dart';
+import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/join_group_bloc.dart';
 import 'package:takturns_flutter_app/features/wallet/data/repositories/wallet_repository_impl.dart';
 import 'package:takturns_flutter_app/features/wallet/domain/repositories/wallet_repository.dart';
@@ -31,6 +32,7 @@ Future<void> initDependencies() async {
   );
 
   registerWalletDependencies(sl);
+  registerHomeDependencies(sl);
   // ─── Repositories ────────────────────────────────────────────────────────────
   
 
@@ -63,10 +65,6 @@ Future<void> initDependencies() async {
   sl.registerFactory(() => HasContributed(sl<GroupRepository>()));
 
   // ─── BLoCs ──────────────────────────────────────────────────────────────────
-
-  sl.registerFactory(() => HomeBloc(
-    getGroupDetails: sl<GetGroupDetails>(),
-  ));
 
   sl.registerFactory(() => CreateGroupBloc(
     createGroup: sl<CreateGroup>(),

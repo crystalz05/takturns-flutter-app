@@ -4,40 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takturns_flutter_app/features/groups/domain/entities/group.dart';
 import 'package:takturns_flutter_app/features/groups/domain/usecases/group_usecases.dart';
 
-// Simple home bloc that reads saved group addresses from prefs and loads them
-
-abstract class HomeEvent extends Equatable {
-  const HomeEvent();
-  @override List<Object?> get props => [];
-}
-
-class LoadGroupsEvent extends HomeEvent {
-  const LoadGroupsEvent();
-}
-
-class AddGroupAddressEvent extends HomeEvent {
-  final String address;
-  const AddGroupAddressEvent(this.address);
-  @override List<Object?> get props => [address];
-}
-
-abstract class HomeState extends Equatable {
-  const HomeState();
-  @override List<Object?> get props => [];
-}
-
-class HomeInitial extends HomeState {}
-class HomeLoading extends HomeState {}
-class HomeLoaded extends HomeState {
-  final List<Group> groups;
-  const HomeLoaded(this.groups);
-  @override List<Object?> get props => [groups];
-}
-class HomeError extends HomeState {
-  final String message;
-  const HomeError(this.message);
-  @override List<Object?> get props => [message];
-}
+import 'home_event.dart';
+import 'home_state.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final GetGroupDetails getGroupDetails;

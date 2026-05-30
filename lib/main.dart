@@ -5,6 +5,8 @@ import 'package:takturns_flutter_app/core/router/app_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_bloc.dart';
 
+import 'features/home/presentation/bloc/home_bloc.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initDependencies();
@@ -19,6 +21,7 @@ class TakturnsApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => sl<WalletBloc>()),
+        BlocProvider(create: (_) => sl<HomeBloc>())
       ],
       child: MaterialApp.router(
         title: 'TakTurns',
