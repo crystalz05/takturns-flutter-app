@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:takturns_flutter_app/features/wallet/wallet_injection.dart';
 import 'package:web3dart/web3dart.dart';
 
 import 'package:takturns_flutter_app/core/constants/app_constants.dart';
@@ -16,6 +17,8 @@ import 'package:takturns_flutter_app/features/wallet/domain/repositories/wallet_
 import 'package:takturns_flutter_app/features/wallet/domain/usecases/wallet_usecases.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_bloc.dart';
 
+import '../../features/wallet/data/datasources/wallet_datasource.dart';
+
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
@@ -27,16 +30,15 @@ Future<void> initDependencies() async {
     Web3Client(AppConstants.rpcUrl, http.Client()),
   );
 
+  registerWalletDependencies(sl);
   // ─── Repositories ────────────────────────────────────────────────────────────
-  sl.registerSingleton<WalletRepository>(
-    WalletRepositoryImpl(sl<Web3Client>(), sl<SharedPreferences>()),
-  );
+  
 
   sl.registerSingleton<GroupRepository>(
     GroupRepositoryImpl(
       sl<Web3Client>(),
       () {
-        final walletRepo = sl<WalletRepository>() as WalletRepositoryImpl;
+        final walletRepo = sl<WalletDataSourceImpl>();
         final creds = walletRepo.credentials;
         if (creds == null) throw Exception('Wallet not connected');
         return creds;
@@ -44,11 +46,6 @@ Future<void> initDependencies() async {
     ),
   );
 
-  // ─── Wallet Use Cases ────────────────────────────────────────────────────────
-  sl.registerFactory(() => ConnectWallet(sl<WalletRepository>()));
-  sl.registerFactory(() => GetStoredWallet(sl<WalletRepository>()));
-  sl.registerFactory(() => GetUsdcBalance(sl<WalletRepository>()));
-  sl.registerFactory(() => DisconnectWallet(sl<WalletRepository>()));
 
   // ─── Group Use Cases ─────────────────────────────────────────────────────────
   sl.registerFactory(() => CreateGroup(sl<GroupRepository>()));
@@ -66,12 +63,6 @@ Future<void> initDependencies() async {
   sl.registerFactory(() => HasContributed(sl<GroupRepository>()));
 
   // ─── BLoCs ──────────────────────────────────────────────────────────────────
-  sl.registerFactory(() => WalletBloc(
-    connectWallet: sl<ConnectWallet>(),
-    getStoredWallet: sl<GetStoredWallet>(),
-    disconnectWallet: sl<DisconnectWallet>(),
-    getUsdcBalance: sl<GetUsdcBalance>(),
-  ));
 
   sl.registerFactory(() => HomeBloc(
     getGroupDetails: sl<GetGroupDetails>(),

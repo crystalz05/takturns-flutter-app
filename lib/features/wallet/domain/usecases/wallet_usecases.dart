@@ -14,7 +14,7 @@ class ConnectWallet extends Usecase<WalletInfo, String> {
 
 class GetStoredWallet extends Usecase<WalletInfo?, NoParams> {
   final WalletRepository repository;
-  GetStoredWallet(this.repository);
+  GetStoredWallet({required this.repository});
 
   @override
   Future<Either<Failure, WalletInfo?>> call(NoParams params) => repository.getStoredWallet();
@@ -22,7 +22,7 @@ class GetStoredWallet extends Usecase<WalletInfo?, NoParams> {
 
 class GetUsdcBalance extends Usecase<BigInt, String> {
   final WalletRepository repository;
-  GetUsdcBalance(this.repository);
+  GetUsdcBalance({required this.repository});
 
   @override
   Future<Either<Failure, BigInt>> call(String address) => repository.getUsdcBalance(address);
@@ -30,7 +30,7 @@ class GetUsdcBalance extends Usecase<BigInt, String> {
 
 class DisconnectWallet extends Usecase<void, NoParams> {
   final WalletRepository repository;
-  DisconnectWallet(this.repository);
+  DisconnectWallet({required this.repository});
 
   @override
   Future<Either<Failure, void>> call(NoParams params) => repository.disconnect();

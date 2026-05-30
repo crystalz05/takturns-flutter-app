@@ -20,7 +20,7 @@ const _pkKey = 'wallet_private_key';
 
 class WalletDataSourceImpl extends WalletDatasource {
 
-  late Web3Client _client;
+  late final Web3Client _client;
   EthPrivateKey? _credentials;
   final SharedPreferences _prefs;
   EthPrivateKey? get credentials => _credentials;
