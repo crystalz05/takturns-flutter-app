@@ -141,7 +141,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: DateTime.now().millisecondsSinceEpoch > data.group.cycleDeadline * 1000
                       ? AppColors.error
-                      : AppColors.textPrimary,
+                      : AppColors.primary,
                 ),
               ),
             ]
@@ -174,7 +174,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         onPressed: data.myContributed ? null : () => context.read<GroupDetailBloc>().add(ContributeEvent(widget.groupAddress)),
         style: ElevatedButton.styleFrom(
           backgroundColor: data.myContributed ? AppColors.surfaceVariant : AppColors.primary,
-          foregroundColor: data.myContributed ? AppColors.textMuted : Colors.black,
+          foregroundColor: data.myContributed ? AppColors.primary : Colors.black,
         ),
         child: Text(data.myContributed ? 'Contributed for this cycle' : 'Contribute ${data.group.contributionAmount.toUsdc()}'),
       );
@@ -191,10 +191,10 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
         return ListTile(
           leading: CircleAvatar(
-            backgroundColor: isRecipient ? AppColors.accent : AppColors.surfaceVariant,
+            backgroundColor: isRecipient ? AppColors.primary : AppColors.surfaceVariant,
             child: Icon(
               isRecipient ? Icons.monetization_on : Icons.person,
-              color: isRecipient ? Colors.black : AppColors.textSecondary,
+              color: isRecipient ? Colors.black : AppColors.secondary,
             ),
           ),
           title: Text(
@@ -205,7 +205,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           trailing: data.group.isActive
               ? Icon(
                   member.hasContributedThisCycle ? Icons.check_circle : Icons.pending,
-                  color: member.hasContributedThisCycle ? AppColors.success : AppColors.textMuted,
+                  color: member.hasContributedThisCycle ? AppColors.success : AppColors.primary,
                 )
               : null,
           onLongPress: data.group.isActive && !member.hasContributedThisCycle && DateTime.now().millisecondsSinceEpoch > data.group.cycleDeadline * 1000

@@ -159,7 +159,7 @@ class _DetailRow extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: highlight ? AppColors.accent : AppColors.textPrimary,
+              color: highlight ? AppColors.onSurface : AppColors.primary,
             ),
           ),
         ],

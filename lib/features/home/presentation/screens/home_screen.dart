@@ -91,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return Text('Error: ${homeState.message}', style: const TextStyle(color: AppColors.error));
                     } else if (homeState is HomeLoaded) {
                       if (homeState.groups.isEmpty) {
-                        return const Text('You have not joined any groups yet.', style: TextStyle(color: AppColors.textSecondary));
+                        return const Text('You have not joined any groups yet.', style: TextStyle(color: AppColors.secondary));
                       }
                       return Column(
                         children: homeState.groups.map((group) {
@@ -124,10 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildWalletCard(BuildContext context, WalletConnected state) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
