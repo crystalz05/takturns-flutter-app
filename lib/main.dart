@@ -27,6 +27,7 @@ class TakturnsApp extends StatelessWidget {
       child: MaterialApp.router(
         title: 'TakTurns',
         routerConfig: appRouter,
+        darkTheme: AppTheme.dark,
         debugShowCheckedModeBanner: false,
       ),
     );

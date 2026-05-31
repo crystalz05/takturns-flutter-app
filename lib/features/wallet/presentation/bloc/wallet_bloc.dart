@@ -26,17 +26,18 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       Emitter<WalletState> emit,
       ) async {
     emit(WalletChecking());
+    await Future.delayed(Duration(seconds: 2));
     try {
       final result = await _walletRepository.getStoredWallet();
       if(result.isRight()){
         final wallet = result.getOrElse(() => null);
         if (wallet != null) {
-          log("Checking auth $wallet", name: "Wallet block");
           emit(WalletConnected(wallet: wallet));
         } else {
           emit(WalletDisconnected());
         }
-      }else{
+      }
+      if(result.isLeft()){
         emit(WalletDisconnected());
       }
     } catch (e) {

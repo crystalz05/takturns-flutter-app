@@ -20,7 +20,7 @@ void registerWalletDependencies(GetIt sl){
   sl.registerLazySingleton(() => GetUsdcBalance(repository: sl()));
   sl.registerLazySingleton(() => DisconnectWallet(repository: sl()));
 
-  sl.registerFactory(
-      () => WalletBloc(walletRepository: sl())
+  sl.registerLazySingleton<WalletBloc>(
+        () => WalletBloc(walletRepository: sl()),
   );
 }
