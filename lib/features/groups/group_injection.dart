@@ -16,12 +16,12 @@ void registerGroupDependencies(GetIt sl) {
         () => GroupRemoteDataSourceImpl(sl()),
   );
 
+
   // ─── Repositories ────────────────────────────────────────────────────────────
   sl.registerLazySingleton<GroupRepository>(
-        () => GroupRepositoryImpl(
-      sl(), // Injects GroupRemoteDataSource
-          () {
-        final walletRepo = sl<WalletDataSourceImpl>();
+        () => GroupRepositoryImpl(sl(), // Injects GroupRemoteDataSource
+      () {
+        final walletRepo = sl<WalletDatasource>();
         final creds = walletRepo.credentials;
         if (creds == null) throw Exception('Wallet not connected');
         return creds;

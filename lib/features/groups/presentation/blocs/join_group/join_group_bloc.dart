@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:takturns_flutter_app/features/groups/domain/entities/group.dart';
@@ -32,7 +34,10 @@ class JoinGroupBloc extends Bloc<JoinGroupEvent, JoinGroupState> {
 
     final groupResult = await getGroupDetails(event.groupAddress);
     await groupResult.fold(
-          (failure) async => emit(JoinGroupError(failure.message)),
+          (failure) async {
+            log("failed ${failure.message}", name: "join group bloc");
+            emit(JoinGroupError(failure.message));
+          },
           (group) async {
         final collateralResult = await getCollateralAmount(
           GetCollateralParams(contribution: group.contributionAmount, minGrade: group.minGrade),

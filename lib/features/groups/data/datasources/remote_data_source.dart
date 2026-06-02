@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:web3dart/web3dart.dart';
 import '../../../../core/constants/abis.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -65,6 +67,8 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
       function: fn,
       parameters: params,
       maxGas: gasLimit?.toInt() ?? 500000,
+      maxFeePerGas: EtherAmount.inWei(BigInt.from(100000000)), // 0.1 Gwei
+      maxPriorityFeePerGas: EtherAmount.inWei(BigInt.zero),
     );
     return _client.sendTransaction(
       credentials,
@@ -203,7 +207,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   Future<void> castVote({required String groupAddress, required int vote, required EthPrivateKey credentials}) async {
     await _sendTx(
       contract: _groupContract(groupAddress),
-      functionName: 'castVote',
+      functionName: 'vote',
       params: [BigInt.from(vote)],
       credentials: credentials,
     );
@@ -223,24 +227,35 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   Future<GroupModel> getGroupDetails(String groupAddress) async {
     final contract = _groupContract(groupAddress);
 
-    Future<dynamic> read(String fn, [List<dynamic> params = const []]) => _client
-        .call(contract: contract, function: contract.function(fn), params: params)
+    Future<List<dynamic>> readRaw(String fn, [List<dynamic> params = const []]) => _client
+        .call(contract: contract, function: contract.function(fn), params: params);
+
+    Future<dynamic> read(String fn, [List<dynamic> params = const []]) => readRaw(fn, params)
         .then((r) => r.first);
 
     final results = await Future.wait([
-      read('admin'),
-      read('contributionAmount'),
-      read('cycleDuration'),
-      read('maxMembers'),
-      read('currentCycle'),
-      read('state'),
-      read('getMembers'),
-      read('cycleDeadline'),
-      read('minGrade'),
-      read('token'),
+      readRaw('config'),        // 0: tuple (admin, factory, token, minGrade, contributionAmount, cycleDuration, maxMembers)
+      read('currentCycle'),     // 1
+      read('state'),            // 2
+      readRaw('getMembers'),    // 3
+      read('cycleStartTime'),   // 4
     ]);
 
-    final members = (results[6] as List<dynamic>).map((e) => (e as EthereumAddress).hex).toList();
+    final config = results[0];
+    final admin = (config[0] as EthereumAddress).hex;
+    final token = (config[2] as EthereumAddress).hex;
+    final minGrade = (config[3] as BigInt).toInt();
+    final contributionAmount = config[4] as BigInt;
+    final cycleDuration = config[5] as BigInt;
+    final maxMembers = (config[6] as BigInt).toInt();
+
+    final currentCycle = (results[1] as BigInt).toInt();
+    final stateVal = (results[2] as BigInt).toInt();
+    final members = ((results[3] as List).first as List<dynamic>).map((e) => (e as EthereumAddress).hex).toList();
+    final cycleStartTime = (results[4] as BigInt).toInt();
+
+    // Compute cycleDeadline = cycleStartTime + cycleDuration
+    final cycleDeadline = cycleStartTime + cycleDuration.toInt();
 
     String recipient = '';
     try {
@@ -254,17 +269,17 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
 
     return GroupModel(
       address: groupAddress,
-      admin: (results[0] as EthereumAddress).hex,
-      contributionAmount: results[1] as BigInt,
-      cycleDuration: results[2] as BigInt,
-      maxMembers: (results[3] as BigInt).toInt(),
-      currentCycle: (results[4] as BigInt).toInt(),
-      state: (results[5] as BigInt).toInt().toGroupState(),
+      admin: admin,
+      contributionAmount: contributionAmount,
+      cycleDuration: cycleDuration,
+      maxMembers: maxMembers,
+      currentCycle: currentCycle,
+      state: stateVal.toGroupState(),
       members: members,
       currentRecipient: recipient,
-      cycleDeadline: (results[7] as BigInt).toInt(),
-      minGrade: (results[8] as BigInt).toInt(),
-      token: (results[9] as EthereumAddress).hex,
+      cycleDeadline: cycleDeadline,
+      minGrade: minGrade,
+      token: token,
     );
   }
 
@@ -292,30 +307,30 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     );
     final addresses = (membersResult.first as List<dynamic>).map((e) => (e as EthereumAddress).hex).toList();
 
+    // Read current cycle for hasContributedThisCycle
+    final cycleResult = await _client.call(
+      contract: contract,
+      function: contract.function('currentCycle'),
+      params: [],
+    );
+    final currentCycle = cycleResult.first as BigInt;
+
     return await Future.wait(
       addresses.map((addr) async {
         bool contributed = false;
-        BigInt total = BigInt.zero;
         try {
           final contribResult = await _client.call(
             contract: contract,
-            function: contract.function('hasContributed'),
-            params: [EthereumAddress.fromHex(addr)],
+            function: contract.function('hasContributedThisCycle'),
+            params: [currentCycle, EthereumAddress.fromHex(addr)],
           );
           contributed = contribResult.first as bool;
-
-          final totalResult = await _client.call(
-            contract: contract,
-            function: contract.function('totalContributed'),
-            params: [EthereumAddress.fromHex(addr)],
-          );
-          total = totalResult.first as BigInt;
         } catch (_) {}
 
         return MemberModel(
           address: addr,
           hasContributedThisCycle: contributed,
-          totalContributed: total,
+          totalContributed: BigInt.zero, // No longer available from contract
         );
       }),
     );
@@ -324,10 +339,18 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   @override
   Future<bool> hasContributed({required String groupAddress, required String memberAddress}) async {
     final contract = _groupContract(groupAddress);
+    // Read current cycle
+    final cycleResult = await _client.call(
+      contract: contract,
+      function: contract.function('currentCycle'),
+      params: [],
+    );
+    final currentCycle = cycleResult.first as BigInt;
+
     final result = await _client.call(
       contract: contract,
-      function: contract.function('hasContributed'),
-      params: [EthereumAddress.fromHex(memberAddress)],
+      function: contract.function('hasContributedThisCycle'),
+      params: [currentCycle, EthereumAddress.fromHex(memberAddress)],
     );
     return result.first as bool;
   }

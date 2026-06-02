@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takturns_flutter_app/features/wallet/data/datasources/wallet_datasource.dart';
 import 'package:takturns_flutter_app/features/wallet/data/repositories/wallet_repository_impl.dart';
 import 'package:takturns_flutter_app/features/wallet/domain/repositories/wallet_repository.dart';

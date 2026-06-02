@@ -9,7 +9,7 @@ extension BigIntFormatting on BigInt {
     final fraction = (this % divisor).toInt();
     final fractionStr = fraction.toString().padLeft(AppConstants.usdcDecimals, '0');
     final truncated = fractionStr.substring(0, decimalPlaces);
-    return '$whole.$truncated USDC';
+    return '$whole.$truncated';
   }
 
   /// Convert USDC display amount (double) to raw BigInt

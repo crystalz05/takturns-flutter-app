@@ -19,6 +19,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
   @override
   void initState() {
     super.initState();
@@ -28,126 +29,368 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('TakTurns Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<WalletBloc>().add(DisconnectWalletEvent());
-              context.goNamed('wallet');
-            },
-          ),
-        ],
-      ),
-      body: BlocBuilder<WalletBloc, WalletState>(
-        builder: (context, walletState) {
-          if (walletState is! WalletConnected) return const SizedBox.shrink();
+    return BlocBuilder<WalletBloc, WalletState>(
+      builder: (context, walletState) {
+        if (walletState is! WalletConnected) return const Scaffold(body: SizedBox.shrink());
 
-          return RefreshIndicator(
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          // Custom Top Header matching Design Profile
+          appBar: AppBar(
+            backgroundColor: AppColors.surface,
+            elevation: 0,
+            leading: const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary, size: 28),
+            ),
+            titleSpacing: 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'GRADE: ${walletState.wallet.displayGrade}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.onSecondaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  walletState.wallet.address.truncated,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.outline,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout_outlined, color: AppColors.error),
+                onPressed: () {
+                  context.read<WalletBloc>().add(DisconnectWalletEvent());
+                  context.goNamed('wallet');
+                },
+              ),
+            ],
+          ),
+
+          // Primary View Layout Engine
+          body: RefreshIndicator(
+            color: AppColors.primary,
             onRefresh: () async {
               context.read<HomeBloc>().add(const LoadGroupsEvent());
               context.read<WalletBloc>().add(RefreshBalanceEvent());
             },
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               children: [
-                _buildWalletCard(context, walletState),
-                const SizedBox(height: 24),
+                // 1. Balance Metric Display Card
+                _buildTotalBalanceCard(context, walletState),
+                const SizedBox(height: 20),
+
+                // 2. Twin Interactive Action Gateways (Create vs Join)
+                _buildActionButtons(context),
+                const SizedBox(height: 32),
+
+                // 3. Dynamic Interactive Group Lists
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => context.pushNamed('create-group').then((_) {
-                          if (!context.mounted) return;
-                          context.read<HomeBloc>().add(const LoadGroupsEvent());
-                        }),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create'),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => context.pushNamed('join-group').then((_) {
-                          if (!context.mounted) return;
-                          context.read<HomeBloc>().add(const LoadGroupsEvent());
-                        }),
-                        icon: const Icon(Icons.group_add),
-                        label: const Text('Join'),
+                    Text(
+                      'Your Groups',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.onBackground,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                _buildGroupsSection(context),
                 const SizedBox(height: 32),
-                Text('My Groups', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 16),
-                BlocBuilder<HomeBloc, HomeState>(
-                  builder: (context, homeState) {
-                    if (homeState is HomeLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (homeState is HomeError) {
-                      return Text('Error: ${homeState.message}', style: const TextStyle(color: AppColors.error));
-                    } else if (homeState is HomeLoaded) {
-                      if (homeState.groups.isEmpty) {
-                        return const Text('You have not joined any groups yet.', style: TextStyle(color: AppColors.secondary));
-                      }
-                      return Column(
-                        children: homeState.groups.map((group) {
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              title: Text('Group: ${group.address.truncated}'),
-                              subtitle: Text('${group.contributionAmount.toUsdc()} • ${group.cycleDuration.toInt().cycleDurationLabel}'),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.pushNamed('group-detail', pathParameters: {'address': group.address}).then((_) {
-                                if (!context.mounted) return;
-                                context.read<HomeBloc>().add(const LoadGroupsEvent());
-                              }),
-                            ),
-                          );
-                        }).toList(),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- Widget Component Assembly Blocks ---
+
+  Widget _buildTotalBalanceCard(BuildContext context, WalletConnected state) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total Balance',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.outline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      state.wallet.usdcBalance.toUsdc(), // e.g., $1,250.00
+                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'USDC',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.outline,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          );
-        },
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceContainer,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.account_balance, color: AppColors.primary, size: 28),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildWalletCard(BuildContext context, WalletConnected state) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Wallet', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('Grade ${state.wallet.displayGrade}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+  Widget _buildActionButtons(BuildContext context) {
+    return Row(
+      children: [
+        // Create New Group Tile (Solid Deep Green Accent)
+        Expanded(
+          child: SizedBox(
+            height: 110,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.all(16),
               ),
-            ],
+              onPressed: () => context.pushNamed('create-group').then((_) {
+                if (!context.mounted) return;
+                context.read<HomeBloc>().add(const LoadGroupsEvent());
+              }),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.add_circle, size: 28),
+                  SizedBox(height: 10),
+                  Text(
+                    'Create New\nGroup',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, height: 1.2),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(state.wallet.address.truncated, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
-          const SizedBox(height: 24),
-          Text('USDC Balance', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70)),
-          Text(state.wallet.usdcBalance.toUsdc(), style: Theme.of(context).textTheme.displayMedium?.copyWith(color: Colors.white)),
-        ],
-      ),
+        ),
+        const SizedBox(width: 14),
+        // Join Existing Group Tile (Light Subtle Surface Container Tint)
+        Expanded(
+          child: SizedBox(
+            height: 110,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.surfaceContainerLow,
+                foregroundColor: AppColors.onSurface,
+                side: BorderSide(color: AppColors.outlineVariant.withOpacity(0.3)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.all(16),
+              ),
+              onPressed: () => context.pushNamed('join-group').then((_) {
+                if (!context.mounted) return;
+                context.read<HomeBloc>().add(const LoadGroupsEvent());
+              }),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.person_add_alt_1, size: 28, color: AppColors.onSurface),
+                  SizedBox(height: 10),
+                  Text(
+                    'Join Existing\nGroup',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.onPrimaryContainer, height: 1.2),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupsSection(BuildContext context) {
+    return BlocBuilder<HomeBloc, HomeState>(
+      builder: (context, homeState) {
+        if (homeState is HomeLoading) {
+          return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
+        } else if (homeState is HomeError) {
+          return Text('Error: ${homeState.message}', style: const TextStyle(color: AppColors.error));
+        } else if (homeState is HomeLoaded) {
+          if (homeState.groups.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('You have not joined any groups yet.', style: TextStyle(color: AppColors.outline)),
+            );
+          }
+          return Column(
+            children: homeState.groups.map((group) {
+              final Color badgeBg;
+              final Color badgeFg;
+              if (group.isActive) {
+                badgeBg = AppColors.secondaryContainer;
+                badgeFg = AppColors.onSecondaryContainer;
+              } else if (group.isPending) {
+                badgeBg = AppColors.surfaceContainer;
+                badgeFg = AppColors.outline;
+              } else if (group.isCompleted) {
+                badgeBg = AppColors.primary;
+                badgeFg = AppColors.onPrimary;
+              } else {
+                badgeBg = AppColors.errorContainer;
+                badgeFg = AppColors.error;
+              } 
+
+              // Build deadline / status line
+              final String statusLine;
+              if (group.isActive && group.cycleDeadline > 0) {
+                statusLine = 'Deadline: ${group.cycleDeadline.toDeadlineStr}';
+              } else if (group.isPending) {
+                statusLine = 'Waiting for members (${group.members.length}/${group.maxMembers})';
+              } else {
+                statusLine = group.state.name[0].toUpperCase() + group.state.name.substring(1);
+              }
+
+              return Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: AppColors.outlineVariant),
+                ),
+                color: AppColors.surfaceContainerLowest,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => context.pushNamed('group-detail', pathParameters: {'address': group.address}).then((_) {
+                    if (!context.mounted) return;
+                    context.read<HomeBloc>().add(const LoadGroupsEvent());
+                  }),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        // Member count fraction
+                        Text(
+                          '${group.members.length}/${group.maxMembers}',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppColors.onPrimaryContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        // Group info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                group.address.truncated,
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.onSurface,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${group.contributionAmount.toUsdc()} USDC • ${group.cycleDuration.toInt().cycleDurationLabel}',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.outline),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(
+                                    group.isActive ? Icons.timer_outlined : Icons.group_outlined,
+                                    size: 14,
+                                    color: AppColors.onPrimaryContainer,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      statusLine,
+                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        color: AppColors.onPrimaryContainer,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Status badge pill
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: badgeBg,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            group.state.name.toUpperCase(),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: badgeFg,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          );
+        }
+        return const SizedBox.shrink();
+      },
     );
   }
 }

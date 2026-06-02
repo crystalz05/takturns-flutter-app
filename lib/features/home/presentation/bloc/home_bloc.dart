@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:takturns_flutter_app/core/errors/failures.dart';
 import 'package:takturns_flutter_app/features/groups/domain/entities/group.dart';
 import 'package:takturns_flutter_app/features/groups/domain/usecases/group_usecases.dart';
 
@@ -21,10 +22,27 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final addresses = prefs.getStringList(_prefsKey) ?? [];
-      final groups = await Future.wait(
+      final results = await Future.wait(
         addresses.map((addr) => getGroupDetails(addr)).toList(),
       );
-      emit(HomeLoaded(groups.cast<Group>()));
+
+      final List<Group> successfulGroups = [];
+      Failure? firstFailure;
+
+      for (final result in results) {
+        result.fold(
+              (failure) => firstFailure = failure, // Left side: Failure
+              (group) => successfulGroups.add(group), // Right side: Success (Group)
+        );
+      }
+
+      if (successfulGroups.isEmpty && firstFailure != null) {
+        // If everything failed, or you want strict "fail on first error" behavior:
+        emit(HomeError("Failed to load groups"));
+      } else {
+        // Pass the clean List<Group> to your state
+        emit(HomeLoaded(successfulGroups));
+      }
     } catch (e) {
       emit(HomeError(e.toString().replaceAll('Exception: ', '')));
     }

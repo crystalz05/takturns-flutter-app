@@ -14,6 +14,7 @@ abstract class WalletDatasource {
   Future<BigInt> getUsdcBalance(String address);
   Future<void> disconnect();
   String? get currentAddress;
+  EthPrivateKey? get credentials;
 }
 
 const _pkKey = 'wallet_private_key';
