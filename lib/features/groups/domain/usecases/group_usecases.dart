@@ -200,3 +200,23 @@ class HasContributedParams {
 
   const HasContributedParams({required this.groupAddress, required this.memberAddress});
 }
+
+// ─── Get User Groups ──────────────────────────────────────────────────────────
+class GetUserGroups {
+  final GroupRepository repo;
+  GetUserGroups(this.repo);
+
+  Future<Either<Failure, List<Group>>> call(String walletAddress) {
+    return repo.getUserGroups(walletAddress);
+  }
+}
+
+// ─── Get Created Groups ───────────────────────────────────────────────────────
+class GetCreatedGroups {
+  final GroupRepository repo;
+  GetCreatedGroups(this.repo);
+
+  Future<Either<Failure, List<Group>>> call(String walletAddress) {
+    return repo.getCreatedGroups(walletAddress);
+  }
+}

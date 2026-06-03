@@ -8,9 +8,9 @@ class AppConstants {
 
   // ─── Contracts ──────────────────────────────────────────────────────────────
   static const String factoryAddress =
-      '0xF456ba710eFa9737F731667820E8f3A9b999E19a';
-  static const String groupImplementationAddress =
-      '0xB2AF39278d24BA643131EA6410AaB782B48046B1';
+      '0x7541fb68E778ceF41586368516A8Cf0Dd15227a3';
+  // static const String groupImplementationAddress =
+  //     '0x17889c0e094F88f9f6caF75Fbc7Ed52192632207';
   static const String usdcAddress =
       '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d';
 

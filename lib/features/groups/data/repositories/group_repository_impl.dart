@@ -9,9 +9,8 @@ import '../datasources/remote_data_source.dart';
 
 class GroupRepositoryImpl implements GroupRepository {
   final GroupRemoteDataSource _remoteDataSource;
-  final EthPrivateKey Function() _getCredentials;
 
-  GroupRepositoryImpl(this._remoteDataSource, this._getCredentials);
+  GroupRepositoryImpl(this._remoteDataSource);
 
   // ─── Functional Exception-to-Failure Safe Wrapper ─────────────────────────
   Future<Either<Failure, T>> _errorHandler<T>(Future<T> Function() action) async {
@@ -47,7 +46,6 @@ class GroupRepositoryImpl implements GroupRepository {
       cycleDuration: cycleDuration,
       maxMembers: maxMembers,
       token: token,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -70,7 +68,6 @@ class GroupRepositoryImpl implements GroupRepository {
     return _errorHandler(() => _remoteDataSource.approveUsdc(
       spender: spender,
       amount: amount,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -78,7 +75,6 @@ class GroupRepositoryImpl implements GroupRepository {
   Future<Either<Failure, void>> joinGroup(String groupAddress) {
     return _errorHandler(() => _remoteDataSource.joinGroup(
       groupAddress: groupAddress,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -86,7 +82,6 @@ class GroupRepositoryImpl implements GroupRepository {
   Future<Either<Failure, void>> startGroup(String groupAddress) {
     return _errorHandler(() => _remoteDataSource.startGroup(
       groupAddress: groupAddress,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -94,7 +89,6 @@ class GroupRepositoryImpl implements GroupRepository {
   Future<Either<Failure, void>> contribute(String groupAddress) {
     return _errorHandler(() => _remoteDataSource.contribute(
       groupAddress: groupAddress,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -106,7 +100,6 @@ class GroupRepositoryImpl implements GroupRepository {
     return _errorHandler(() => _remoteDataSource.flagDefaulter(
       groupAddress: groupAddress,
       memberAddress: memberAddress,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -115,7 +108,6 @@ class GroupRepositoryImpl implements GroupRepository {
     return _errorHandler(() => _remoteDataSource.castVote(
       groupAddress: groupAddress,
       vote: vote,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -123,7 +115,6 @@ class GroupRepositoryImpl implements GroupRepository {
   Future<Either<Failure, void>> resolveVote(String groupAddress) {
     return _errorHandler(() => _remoteDataSource.resolveVote(
       groupAddress: groupAddress,
-      credentials: _getCredentials(),
     ));
   }
 
@@ -156,5 +147,15 @@ class GroupRepositoryImpl implements GroupRepository {
   @override
   Future<Either<Failure, String>> getCurrentRecipient(String groupAddress) {
     return _errorHandler(() => _remoteDataSource.getCurrentRecipient(groupAddress));
+  }
+
+  @override
+  Future<Either<Failure, List<Group>>> getCreatedGroups(String walletAddress) {
+    return _errorHandler(() => _remoteDataSource.getCreatedGroups(walletAddress));
+  }
+
+  @override
+  Future<Either<Failure, List<Group>>> getUserGroups(String walletAddress) async {
+    return _errorHandler(() => _remoteDataSource.getUserGroups(walletAddress));
   }
 }

@@ -1,6 +1,11 @@
 import 'dart:developer';
 
+import 'package:flutter/cupertino.dart';
+import 'package:reown_appkit/reown_appkit.dart';
+import 'package:web3dart/crypto.dart';
 import 'package:web3dart/web3dart.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:takturns_flutter_app/core/di/injection_container.dart';
 import '../../../../core/constants/abis.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../domain/entities/group.dart';
@@ -15,25 +20,28 @@ abstract class GroupRemoteDataSource {
     required BigInt cycleDuration,
     required int maxMembers,
     required String token,
-    required EthPrivateKey credentials,
   });
   Future<BigInt> getCollateralAmount({required BigInt contribution, required int minGrade});
-  Future<void> approveUsdc({required String spender, required BigInt amount, required EthPrivateKey credentials});
-  Future<void> joinGroup({required String groupAddress, required EthPrivateKey credentials});
-  Future<void> startGroup({required String groupAddress, required EthPrivateKey credentials});
-  Future<void> contribute({required String groupAddress, required EthPrivateKey credentials});
-  Future<void> flagDefaulter({required String groupAddress, required String memberAddress, required EthPrivateKey credentials});
-  Future<void> castVote({required String groupAddress, required int vote, required EthPrivateKey credentials});
-  Future<void> resolveVote({required String groupAddress, required EthPrivateKey credentials});
+  Future<void> approveUsdc({required String spender, required BigInt amount});
+  Future<void> joinGroup({required String groupAddress});
+  Future<void> startGroup({required String groupAddress});
+  Future<void> contribute({required String groupAddress});
+  Future<void> flagDefaulter({required String groupAddress, required String memberAddress});
+  Future<void> castVote({required String groupAddress, required int vote});
+  Future<void> resolveVote({required String groupAddress});
   Future<GroupModel> getGroupDetails(String groupAddress);
   Future<CycleProgressModel> getCycleProgress(String groupAddress);
   Future<List<MemberModel>> getMembers(String groupAddress);
+  Future<List<GroupModel>> getUserGroups(String walletAddress);
+  Future<List<GroupModel>> getCreatedGroups(String walletAddress);
   Future<bool> hasContributed({required String groupAddress, required String memberAddress});
   Future<String> getCurrentRecipient(String groupAddress);
 }
 
 class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   final Web3Client _client;
+  
+  ReownAppKitModal get _appKit => sl<ReownAppKitModal>();
 
   GroupRemoteDataSourceImpl(this._client);
 
@@ -58,23 +66,51 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     required DeployedContract contract,
     required String functionName,
     required List<dynamic> params,
-    required EthPrivateKey credentials,
     BigInt? gasLimit,
   }) async {
+    if (_appKit.session == null) {
+      throw Exception('Wallet not connected');
+    }
+    
     final fn = contract.function(functionName);
-    final tx = Transaction.callContract(
-      contract: contract,
-      function: fn,
-      parameters: params,
-      maxGas: gasLimit?.toInt() ?? 500000,
-      maxFeePerGas: EtherAmount.inWei(BigInt.from(100000000)), // 0.1 Gwei
-      maxPriorityFeePerGas: EtherAmount.inWei(BigInt.zero),
+    final data = fn.encodeCall(params);
+    
+    // We get the raw namespace address from ReownAppKit e.g. "eip155:421614:0x123..."
+    final String fullAddress = _appKit.session!.getAddress('eip155')!;
+    final String senderAddress = fullAddress.contains(':') ? fullAddress.split(':').last : fullAddress;
+
+    // Ensure the wallet is on Arbitrum Sepolia before sending
+    const targetChainId = 'eip155:${AppConstants.chainId}';
+    if (_appKit.selectedChain?.chainId != '${AppConstants.chainId}') {
+      final arbitrumSepolia = ReownAppKitModalNetworks.getNetworkInfo(
+        'eip155',
+        '${AppConstants.chainId}',
+      );
+      if (arbitrumSepolia != null) {
+        await _appKit.selectChain(arbitrumSepolia);
+      }
+    }
+
+    final result = await _appKit.request(
+      topic: _appKit.session!.topic,
+      chainId: targetChainId,
+      request: SessionRequestParams(
+        method: 'eth_sendTransaction',
+        params: [
+          {
+            'from': senderAddress,
+            'to': contract.address.hex,
+            'data': '0x${bytesToHex(data)}',
+            // Reown will let the wallet estimate gas, or we could pass it if needed
+          }
+        ],
+      ),
     );
-    return _client.sendTransaction(
-      credentials,
-      tx,
-      chainId: AppConstants.chainId,
-    );
+    
+    if (result == null || result is! String) {
+      throw Exception('Failed to get transaction hash from wallet');
+    }
+    return result;
   }
 
   // ─── Implementation ────────────────────────────────────────────────────────
@@ -86,7 +122,6 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     required BigInt cycleDuration,
     required int maxMembers,
     required String token,
-    required EthPrivateKey credentials,
   }) async {
     final factory = _factoryContract();
     final txHash = await _sendTx(
@@ -99,7 +134,6 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         BigInt.from(maxMembers),
         EthereumAddress.fromHex(token),
       ],
-      credentials: credentials,
       gasLimit: BigInt.from(800000),
     );
 
@@ -149,77 +183,70 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   }
 
   @override
-  Future<void> approveUsdc({required String spender, required BigInt amount, required EthPrivateKey credentials}) async {
+  Future<void> approveUsdc({required String spender, required BigInt amount}) async {
     final usdc = _erc20Contract(AppConstants.usdcAddress);
     await _sendTx(
       contract: usdc,
       functionName: 'approve',
       params: [EthereumAddress.fromHex(spender), amount],
-      credentials: credentials,
     );
     await Future.delayed(const Duration(seconds: 3));
   }
 
   @override
-  Future<void> joinGroup({required String groupAddress, required EthPrivateKey credentials}) async {
+  Future<void> joinGroup({required String groupAddress}) async {
     await _sendTx(
       contract: _groupContract(groupAddress),
       functionName: 'joinGroup',
       params: [],
-      credentials: credentials,
       gasLimit: BigInt.from(300000),
     );
   }
 
   @override
-  Future<void> startGroup({required String groupAddress, required EthPrivateKey credentials}) async {
+  Future<void> startGroup({required String groupAddress}) async {
     await _sendTx(
       contract: _groupContract(groupAddress),
       functionName: 'startGroup',
       params: [],
-      credentials: credentials,
     );
   }
 
   @override
-  Future<void> contribute({required String groupAddress, required EthPrivateKey credentials}) async {
+  Future<void> contribute({required String groupAddress}) async {
     await _sendTx(
       contract: _groupContract(groupAddress),
       functionName: 'contribute',
       params: [],
-      credentials: credentials,
       gasLimit: BigInt.from(600000),
     );
   }
 
   @override
-  Future<void> flagDefaulter({required String groupAddress, required String memberAddress, required EthPrivateKey credentials}) async {
+  Future<void> flagDefaulter({required String groupAddress, required String memberAddress}) async {
     await _sendTx(
       contract: _groupContract(groupAddress),
       functionName: 'flagDefaulter',
       params: [EthereumAddress.fromHex(memberAddress)],
-      credentials: credentials,
       gasLimit: BigInt.from(500000),
     );
   }
 
   @override
-  Future<void> castVote({required String groupAddress, required int vote, required EthPrivateKey credentials}) async {
+  Future<void> castVote({required String groupAddress, required int vote}) async {
     await _sendTx(
       contract: _groupContract(groupAddress),
       functionName: 'vote',
       params: [BigInt.from(vote)],
-      credentials: credentials,
     );
   }
 
   @override
-  Future<void> resolveVote({required String groupAddress, required EthPrivateKey credentials}) async {
+  Future<void> resolveVote({required String groupAddress}) async {
     await _sendTx(
       contract: _groupContract(groupAddress),
       functionName: 'resolveVote',
       params: [],
-      credentials: credentials,
     );
   }
 
@@ -300,53 +327,69 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   @override
   Future<List<MemberModel>> getMembers(String groupAddress) async {
     final contract = _groupContract(groupAddress);
-    final membersResult = await _client.call(
-      contract: contract,
-      function: contract.function('getMembers'),
-      params: [],
-    );
-    final addresses = (membersResult.first as List<dynamic>).map((e) => (e as EthereumAddress).hex).toList();
+    
+    // 1. Fetch addresses and collateral from Supabase (much faster than looping getMembers on-chain)
+    final supabase = sl<SupabaseClient>();
+    final supabaseMembers = await supabase
+      .from('group_members')
+      .select('member_address, collateral_amount')
+      .eq('group_address', groupAddress.toLowerCase());
 
-    // Read current cycle for hasContributedThisCycle
-    final cycleResult = await _client.call(
+    if (supabaseMembers.isEmpty) return [];
+
+    // 2. Fetch current cycle
+    final currentCycleResult = await _client.call(
       contract: contract,
       function: contract.function('currentCycle'),
       params: [],
     );
-    final currentCycle = cycleResult.first as BigInt;
+    final currentCycle = currentCycleResult.first as BigInt;
+    
+    // 3. For each member found in Supabase, fetch their up-to-date state flags concurrently
+    final List<MemberModel> models = [];
+    final futures = supabaseMembers.map((row) async {
+      final addrHex = row['member_address'] as String;
+      final addr = EthereumAddress.fromHex(addrHex);
+      final collateralAmount = BigInt.tryParse(row['collateral_amount'].toString()) ?? BigInt.zero;
 
-    return await Future.wait(
-      addresses.map((addr) async {
-        bool contributed = false;
-        try {
-          final contribResult = await _client.call(
-            contract: contract,
-            function: contract.function('hasContributedThisCycle'),
-            params: [currentCycle, EthereumAddress.fromHex(addr)],
-          );
-          contributed = contribResult.first as bool;
-        } catch (_) {}
+      final mRes = await _client.call(
+        contract: contract,
+        function: contract.function('members'),
+        params: [addr],
+      );
+      
+      final hasContributedResult = await _client.call(
+        contract: contract,
+        function: contract.function('hasContributedThisCycle'),
+        params: [currentCycle, addr],
+      );
 
-        return MemberModel(
-          address: addr,
-          hasContributedThisCycle: contributed,
-          totalContributed: BigInt.zero, // No longer available from contract
-        );
-      }),
-    );
+      return MemberModel(
+        address: addrHex,
+        hasJoined: mRes[0] as bool,
+        hasCollected: mRes[1] as bool,
+        hasDefaulted: mRes[2] as bool,
+        isLeaving: mRes[3] as bool,
+        collateralDeposited: mRes[4] as BigInt, // Could also use collateralAmount from Supabase
+        hasContributed: hasContributedResult.first as bool,
+      );
+    });
+
+    models.addAll(await Future.wait(futures));
+    return models;
   }
 
   @override
   Future<bool> hasContributed({required String groupAddress, required String memberAddress}) async {
     final contract = _groupContract(groupAddress);
-    // Read current cycle
-    final cycleResult = await _client.call(
+    
+    final currentCycleResult = await _client.call(
       contract: contract,
       function: contract.function('currentCycle'),
       params: [],
     );
-    final currentCycle = cycleResult.first as BigInt;
-
+    final currentCycle = currentCycleResult.first as BigInt;
+    
     final result = await _client.call(
       contract: contract,
       function: contract.function('hasContributedThisCycle'),
@@ -364,5 +407,125 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
       params: [],
     );
     return (result.first as EthereumAddress).hex;
+  }
+
+  @override
+  Future<List<GroupModel>> getUserGroups(String walletAddress) async {
+    final supabase = sl<SupabaseClient>();
+    print('DEBUG: Fetching user groups for $walletAddress');
+    try {
+      final response = await supabase
+          .from('group_members')
+          .select('group_address, collateral_amount, groups(*)')
+          .eq('member_address', walletAddress.toLowerCase());
+
+      print('DEBUG: getUserGroups Supabase response: $response');
+
+      final List<GroupModel> userGroups = [];
+      for (final row in response) {
+        if (row['groups'] != null) {
+          final groupData = row['groups'] as Map<String, dynamic>;
+          
+          userGroups.add(GroupModel(
+            address: groupData['address'] ?? row['group_address'],
+            admin: groupData['admin'] ?? groupData['creator_address'] ?? '',
+            contributionAmount: BigInt.tryParse(groupData['contribution_amount']?.toString() ?? '0') ?? BigInt.zero,
+            cycleDuration: BigInt.tryParse(groupData['cycle_duration']?.toString() ?? '0') ?? BigInt.zero,
+            maxMembers: groupData['max_members'] ?? 0,
+            currentCycle: groupData['current_cycle'] ?? 0,
+            state: (groupData['state'] as int? ?? 0).toGroupState(),
+            members: const [], 
+            currentRecipient: groupData['current_recipient'] ?? '',
+            cycleDeadline: groupData['cycle_deadline'] ?? 0,
+            minGrade: groupData['min_grade'] ?? 0,
+            token: groupData['token'] ?? groupData['token_address'] ?? '',
+          ));
+        }
+      }
+      return userGroups;
+    } catch (e, st) {
+      print('DEBUG: Error in getUserGroups: $e\n$st');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<GroupModel>> getCreatedGroups(String walletAddress) async {
+    final supabase = sl<SupabaseClient>();
+    print('DEBUG: Fetching created groups for $walletAddress');
+    try {
+      final response = await supabase
+          .from('groups')
+          .select()
+          .eq('creator_address', walletAddress.toLowerCase());
+
+      print('DEBUG: getCreatedGroups Supabase response: $response');
+
+      final List<GroupModel> createdGroups = [];
+      for (final row in response) {
+        createdGroups.add(GroupModel(
+          address: row['group_address'],
+          admin: row['creator_address'] ?? '',
+          contributionAmount: BigInt.tryParse(row['contribution_amount']?.toString() ?? '0') ?? BigInt.zero,
+          cycleDuration: BigInt.tryParse(row['cycle_duration']?.toString() ?? '0') ?? BigInt.zero,
+          maxMembers: row['max_members'] ?? 0,
+          currentCycle: row['current_cycle'] ?? 0,
+          state: (row['state'] as int? ?? 0).toGroupState(),
+          members: const [], // Detailed members not populated unless needed
+          currentRecipient: row['current_recipient'] ?? '',
+          cycleDeadline: row['cycle_deadline'] ?? 0,
+          minGrade: row['min_grade'] ?? 0,
+          token: row['token_address'] ?? '',
+        ));
+      }
+      
+      // We sync on-chain state for these groups
+      if (createdGroups.isNotEmpty) {
+        final futures = createdGroups.map((g) async {
+          try {
+            final contract = _groupContract(g.address);
+            
+            final stateFuture = _client.call(contract: contract, function: contract.function('state'), params: []);
+            final cycleFuture = _client.call(contract: contract, function: contract.function('currentCycle'), params: []);
+            final startTimeFuture = _client.call(contract: contract, function: contract.function('cycleStartTime'), params: []);
+            final configFuture = _client.call(contract: contract, function: contract.function('config'), params: []);
+            
+            final results = await Future.wait([stateFuture, cycleFuture, startTimeFuture, configFuture]);
+            
+            final stateInt = (results[0].first as BigInt).toInt();
+            final currentCycle = (results[1].first as BigInt).toInt();
+            final cycleStartTime = results[2].first as BigInt;
+            
+            final configList = results[3];
+            final contributionAmt = configList[4] as BigInt;
+            final cycleDur = configList[5] as BigInt;
+            final maxMems = (configList[6] as BigInt).toInt();
+            
+            int cycleDeadline = 0;
+            if (stateInt == AppConstants.stateActive) {
+              cycleDeadline = cycleStartTime.toInt() + cycleDur.toInt();
+            }
+            
+            final index = createdGroups.indexOf(g);
+            createdGroups[index] = g.copyWith(
+              state: stateInt.toGroupState(),
+              currentCycle: currentCycle,
+              cycleDeadline: cycleDeadline,
+              contributionAmount: contributionAmt,
+              cycleDuration: cycleDur,
+              maxMembers: maxMems,
+            );
+          } catch (e) {
+            print('DEBUG: Error syncing on-chain state for created group ${g.address}: $e');
+          }
+        });
+        await Future.wait(futures);
+      }
+      
+      return createdGroups;
+    } catch (e, st) {
+      print('DEBUG: Error in getCreatedGroups: $e\n$st');
+      rethrow;
+    }
   }
 }

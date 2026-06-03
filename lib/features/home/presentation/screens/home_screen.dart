@@ -6,6 +6,7 @@ import 'package:takturns_flutter_app/core/utils/extensions.dart';
 import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_bloc.dart';
 
+import '../../../groups/domain/entities/group.dart';
 import '../../../wallet/presentation/bloc/wallet_event.dart';
 import '../../../wallet/presentation/bloc/wallet_state.dart';
 import '../bloc/home_event.dart';
@@ -23,8 +24,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<HomeBloc>().add(const LoadGroupsEvent());
-    context.read<WalletBloc>().add(RefreshBalanceEvent());
+    // Wait for the first frame to safely read the WalletBloc state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final walletState = context.read<WalletBloc>().state;
+      if (walletState is WalletConnected) {
+        context.read<HomeBloc>().add(LoadGroupsEvent(walletAddress: walletState.wallet.address));
+      }
+      context.read<WalletBloc>().add(RefreshBalanceEvent());
+    });
   }
 
   @override
@@ -84,7 +91,10 @@ class _HomeScreenState extends State<HomeScreen> {
           body: RefreshIndicator(
             color: AppColors.primary,
             onRefresh: () async {
-              context.read<HomeBloc>().add(const LoadGroupsEvent());
+              final walletState = context.read<WalletBloc>().state;
+              if (walletState is WalletConnected) {
+                context.read<HomeBloc>().add(LoadGroupsEvent(walletAddress: walletState.wallet.address));
+              }
               context.read<WalletBloc>().add(RefreshBalanceEvent());
             },
             child: ListView(
@@ -201,7 +211,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               onPressed: () => context.pushNamed('create-group').then((_) {
                 if (!context.mounted) return;
-                context.read<HomeBloc>().add(const LoadGroupsEvent());
+                final ws = context.read<WalletBloc>().state;
+                if (ws is WalletConnected) context.read<HomeBloc>().add(LoadGroupsEvent(walletAddress: ws.wallet.address));
               }),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -233,7 +244,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               onPressed: () => context.pushNamed('join-group').then((_) {
                 if (!context.mounted) return;
-                context.read<HomeBloc>().add(const LoadGroupsEvent());
+                final ws = context.read<WalletBloc>().state;
+                if (ws is WalletConnected) context.read<HomeBloc>().add(LoadGroupsEvent(walletAddress: ws.wallet.address));
               }),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -262,135 +274,159 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (homeState is HomeError) {
           return Text('Error: ${homeState.message}', style: const TextStyle(color: AppColors.error));
         } else if (homeState is HomeLoaded) {
-          if (homeState.groups.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text('You have not joined any groups yet.', style: TextStyle(color: AppColors.outline)),
-            );
-          }
+          final joinedGroups = homeState.joinedGroups;
+          final createdGroups = homeState.createdGroups;
+
           return Column(
-            children: homeState.groups.map((group) {
-              final Color badgeBg;
-              final Color badgeFg;
-              if (group.isActive) {
-                badgeBg = AppColors.secondaryContainer;
-                badgeFg = AppColors.onSecondaryContainer;
-              } else if (group.isPending) {
-                badgeBg = AppColors.surfaceContainer;
-                badgeFg = AppColors.outline;
-              } else if (group.isCompleted) {
-                badgeBg = AppColors.primary;
-                badgeFg = AppColors.onPrimary;
-              } else {
-                badgeBg = AppColors.errorContainer;
-                badgeFg = AppColors.error;
-              } 
-
-              // Build deadline / status line
-              final String statusLine;
-              if (group.isActive && group.cycleDeadline > 0) {
-                statusLine = 'Deadline: ${group.cycleDeadline.toDeadlineStr}';
-              } else if (group.isPending) {
-                statusLine = 'Waiting for members (${group.members.length}/${group.maxMembers})';
-              } else {
-                statusLine = group.state.name[0].toUpperCase() + group.state.name.substring(1);
-              }
-
-              return Card(
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: AppColors.outlineVariant),
-                ),
-                color: AppColors.surfaceContainerLowest,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => context.pushNamed('group-detail', pathParameters: {'address': group.address}).then((_) {
-                    if (!context.mounted) return;
-                    context.read<HomeBloc>().add(const LoadGroupsEvent());
-                  }),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        // Member count fraction
-                        Text(
-                          '${group.members.length}/${group.maxMembers}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        // Group info
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                group.address.truncated,
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.onSurface,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${group.contributionAmount.toUsdc()} USDC • ${group.cycleDuration.toInt().cycleDurationLabel}',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.outline),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Icon(
-                                    group.isActive ? Icons.timer_outlined : Icons.group_outlined,
-                                    size: 14,
-                                    color: AppColors.onPrimaryContainer,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      statusLine,
-                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                        color: AppColors.onPrimaryContainer,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Status badge pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: badgeBg,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            group.state.name.toUpperCase(),
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: badgeFg,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (joinedGroups.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('You have not joined any groups yet.', style: TextStyle(color: AppColors.outline)),
+                )
+              else
+                ...joinedGroups.map((group) => _buildGroupCard(context, group)),
+                
+              if (createdGroups.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    title: const Text(
+                      'Groups created',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.onSurface),
                     ),
+                    tilePadding: EdgeInsets.zero,
+                    children: createdGroups.map((group) => _buildGroupCard(context, group)).toList(),
                   ),
                 ),
-              );
-            }).toList(),
+              ],
+            ],
           );
         }
         return const SizedBox.shrink();
       },
+    );
+  }
+
+  Widget _buildGroupCard(BuildContext context, Group group) {
+    final Color badgeBg;
+    final Color badgeFg;
+    if (group.isActive) {
+      badgeBg = AppColors.secondaryContainer;
+      badgeFg = AppColors.onSecondaryContainer;
+    } else if (group.isPending) {
+      badgeBg = AppColors.surfaceContainer;
+      badgeFg = AppColors.outline;
+    } else if (group.isCompleted) {
+      badgeBg = AppColors.primary;
+      badgeFg = AppColors.onPrimary;
+    } else {
+      badgeBg = AppColors.errorContainer;
+      badgeFg = AppColors.error;
+    } 
+
+    // Build deadline / status line
+    final String statusLine;
+    if (group.isActive && group.cycleDeadline > 0) {
+      statusLine = 'Deadline: ${group.cycleDeadline.toDeadlineStr}';
+    } else if (group.isPending) {
+      statusLine = 'Waiting for members (${group.members.length}/${group.maxMembers})';
+    } else {
+      statusLine = group.state.name[0].toUpperCase() + group.state.name.substring(1);
+    }
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.outlineVariant),
+      ),
+      color: AppColors.surfaceContainerLowest,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.pushNamed('group-detail', pathParameters: {'address': group.address}).then((_) {
+          if (!context.mounted) return;
+          final ws = context.read<WalletBloc>().state;
+          if (ws is WalletConnected) context.read<HomeBloc>().add(LoadGroupsEvent(walletAddress: ws.wallet.address));
+        }),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              // Member count fraction
+              Text(
+                '${group.members.length}/${group.maxMembers}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.onPrimaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 20),
+              // Group info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group.address.truncated,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onSurface,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${group.contributionAmount.toUsdc()} USDC • ${group.cycleDuration.toInt().cycleDurationLabel}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.outline),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          group.isActive ? Icons.timer_outlined : Icons.group_outlined,
+                          size: 14,
+                          color: AppColors.onPrimaryContainer,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            statusLine,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppColors.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Status badge pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  group.state.name.toUpperCase(),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: badgeFg,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

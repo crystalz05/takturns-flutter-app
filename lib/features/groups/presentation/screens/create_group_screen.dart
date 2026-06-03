@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/create_group/create_group_bloc.dart';
-import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
 
 import '../blocs/create_group/create_group_event.dart';
 import '../blocs/create_group/create_group_state.dart';
@@ -65,13 +64,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       body: BlocConsumer<CreateGroupBloc, CreateGroupState>(
         listener: (context, state) {
           if (state is CreateGroupSuccess) {
-            HomeBloc.saveGroupAddress(state.groupAddress).then((_) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Group created successfully!'), backgroundColor: AppColors.success),
-              );
-              context.pop();
-            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Group created successfully!'), backgroundColor: AppColors.success),
+            );
+            context.pop();
           } else if (state is CreateGroupError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message), backgroundColor: AppColors.error),

@@ -1,65 +1,69 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takturns_flutter_app/core/constants/app_constants.dart';
 import 'package:takturns_flutter_app/features/wallet/data/models/wallet_model.dart';
-import 'package:takturns_flutter_app/features/wallet/domain/entities/wallet_info.dart';
-import 'package:web3dart/credentials.dart';
+import 'package:reown_appkit/reown_appkit.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart' as http;
+import 'package:takturns_flutter_app/core/di/injection_container.dart';
 
 import '../../../../core/constants/abis.dart';
 
 abstract class WalletDatasource {
-  Future<WalletModel> connectWallet(String privatKey);
+  Future<WalletModel?> connectWallet(String _);
   Future<WalletModel?> getStoredWallet();
   Future<BigInt> getUsdcBalance(String address);
   Future<void> disconnect();
   String? get currentAddress;
-  EthPrivateKey? get credentials;
 }
-
-const _pkKey = 'wallet_private_key';
 
 class WalletDataSourceImpl extends WalletDatasource {
 
   late final Web3Client _client;
-  EthPrivateKey? _credentials;
   final SharedPreferences _prefs;
-  EthPrivateKey? get credentials => _credentials;
+  
+  ReownAppKitModal get _appKit => sl<ReownAppKitModal>();
+  
   WalletModel? _cachedWallet;
 
-  WalletDataSourceImpl(this._prefs){
+  WalletDataSourceImpl(this._prefs) {
     _client = Web3Client(AppConstants.rpcUrl, http.Client());
   }
 
   @override
-  Future<WalletModel> connectWallet(String privateKey) async {
-    try{
-      final normalised = privateKey.startsWith('0x') ? privateKey.substring(2) : privateKey;
-      _credentials = EthPrivateKey.fromHex(normalised);
-      await _prefs.setString(_pkKey, normalised);
+  Future<WalletModel?> connectWallet(String _) async {
+    // connect is handled by the AppKitModalConnectButton UI. 
+    // This just returns the current model if connected.
+    if (_appKit.session != null) {
       return _buildWalletModel();
-    }catch (e){
-      throw Exception("Failed to connect wallet: $e");
     }
+    return null;
   }
 
   @override
-  String? get currentAddress => _credentials?.address.hex;
+  String? get currentAddress {
+    final String? address = _appKit.session?.getAddress('eip155');
+    if (address != null && address.contains(':')) {
+      // Reown appkit addresses are formatted as "namespace:chainId:address" e.g. "eip155:1:0x123..."
+      return address.split(':').last;
+    }
+    return address;
+  }
 
   @override
   Future<void> disconnect() async {
-    _credentials = null;
     _cachedWallet = null;
-    _prefs.remove(_pkKey);
+    if (_appKit.session != null) {
+      await _appKit.disconnect();
+    }
   }
 
   @override
   Future<WalletModel?> getStoredWallet() async {
     try{
-      final stored = _prefs.getString(_pkKey);
-      if (stored == null) return null;
-      _credentials = EthPrivateKey.fromHex(stored);
-      return _buildWalletModel();
+      if (_appKit.session != null) {
+        return _buildWalletModel();
+      }
+      return null;
     }catch (e){
       throw Exception("Failed to get stored wallet: $e");
     }
@@ -85,7 +89,9 @@ class WalletDataSourceImpl extends WalletDatasource {
   }
 
   Future<WalletModel> _buildWalletModel() async {
-    final address = _credentials!.address.hex;
+    final address = currentAddress;
+    if (address == null) throw Exception("No connected address");
+    
     final usdcBalance = await getUsdcBalance(address);
 
     // Fetch member profile from factory

@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web3dart/web3dart.dart';
 
 import 'package:takturns_flutter_app/core/constants/app_constants.dart';
@@ -18,6 +19,8 @@ Future<void> initDependencies() async {
   sl.registerSingleton<Web3Client>(
     Web3Client(AppConstants.rpcUrl, http.Client()),
   );
+
+  sl.registerSingleton<SupabaseClient>(Supabase.instance.client);
 
   // ─── Feature Modules ────────────────────────────────────────────────────────
   registerWalletDependencies(sl);

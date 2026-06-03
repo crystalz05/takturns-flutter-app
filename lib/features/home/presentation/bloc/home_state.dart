@@ -10,9 +10,10 @@ abstract class HomeState extends Equatable {
 class HomeInitial extends HomeState {}
 class HomeLoading extends HomeState {}
 class HomeLoaded extends HomeState {
-  final List<Group> groups;
-  const HomeLoaded(this.groups);
-  @override List<Object?> get props => [groups];
+  final List<Group> joinedGroups;
+  final List<Group> createdGroups;
+  const HomeLoaded({required this.joinedGroups, required this.createdGroups});
+  @override List<Object?> get props => [joinedGroups, createdGroups];
 }
 class HomeError extends HomeState {
   final String message;

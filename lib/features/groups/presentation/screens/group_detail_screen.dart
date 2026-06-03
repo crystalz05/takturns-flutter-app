@@ -201,14 +201,14 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             '${member.address.truncated}${isMe ? " (You)" : ""}',
             style: TextStyle(fontWeight: isMe ? FontWeight.bold : FontWeight.normal),
           ),
-          subtitle: Text('Total: ${member.totalContributed.toUsdc(decimalPlaces: 0)}'),
+          subtitle: Text('Collateral: ${member.collateralDeposited.toUsdc(decimalPlaces: 0)}'),
           trailing: data.group.isActive
               ? Icon(
-                  member.hasContributedThisCycle ? Icons.check_circle : Icons.pending,
-                  color: member.hasContributedThisCycle ? AppColors.success : AppColors.primary,
+                  member.hasContributed ? Icons.check_circle : Icons.pending,
+                  color: member.hasContributed ? AppColors.success : AppColors.primary,
                 )
               : null,
-          onLongPress: data.group.isActive && !member.hasContributedThisCycle && DateTime.now().millisecondsSinceEpoch > data.group.cycleDeadline * 1000
+          onLongPress: data.group.isActive && !member.hasContributed && DateTime.now().millisecondsSinceEpoch > data.group.cycleDeadline * 1000
               ? () {
                   // Admin or anyone can flag if overdue
                   showDialog(

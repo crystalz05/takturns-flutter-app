@@ -15,6 +15,35 @@ class GroupModel extends Group {
     required super.minGrade,
     required super.token,
   });
+  GroupModel copyWith({
+    String? address,
+    String? admin,
+    BigInt? contributionAmount,
+    BigInt? cycleDuration,
+    int? maxMembers,
+    int? currentCycle,
+    GroupState? state,
+    List<String>? members,
+    String? currentRecipient,
+    int? cycleDeadline,
+    int? minGrade,
+    String? token,
+  }) {
+    return GroupModel(
+      address: address ?? this.address,
+      admin: admin ?? this.admin,
+      contributionAmount: contributionAmount ?? this.contributionAmount,
+      cycleDuration: cycleDuration ?? this.cycleDuration,
+      maxMembers: maxMembers ?? this.maxMembers,
+      currentCycle: currentCycle ?? this.currentCycle,
+      state: state ?? this.state,
+      members: members ?? this.members,
+      currentRecipient: currentRecipient ?? this.currentRecipient,
+      cycleDeadline: cycleDeadline ?? this.cycleDeadline,
+      minGrade: minGrade ?? this.minGrade,
+      token: token ?? this.token,
+    );
+  }
 
   /// Factory to parse data directly from a web3dart contract read call response.
   /// Matches typical Solidity struct layout order.

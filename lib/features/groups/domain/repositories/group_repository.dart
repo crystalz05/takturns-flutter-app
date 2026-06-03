@@ -23,6 +23,8 @@ abstract class GroupRepository {
   Future<Either<Failure, Group>> getGroupDetails(String groupAddress);
   Future<Either<Failure, CycleProgress>> getCycleProgress(String groupAddress);
   Future<Either<Failure, List<Member>>> getMembers(String groupAddress);
+  Future<Either<Failure, List<Group>>> getUserGroups(String walletAddress);
+  Future<Either<Failure, List<Group>>> getCreatedGroups(String walletAddress);
   Future<Either<Failure, bool>> hasContributed({required String groupAddress, required String memberAddress});
   Future<Either<Failure, String>> getCurrentRecipient(String groupAddress);
 }

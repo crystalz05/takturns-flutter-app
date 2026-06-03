@@ -35,7 +35,10 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouter = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   refreshListenable: GoRouterRefreshStream(sl<WalletBloc>().stream),
   redirect: (context, state) {

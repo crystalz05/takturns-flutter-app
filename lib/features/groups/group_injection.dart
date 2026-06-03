@@ -16,17 +16,9 @@ void registerGroupDependencies(GetIt sl) {
         () => GroupRemoteDataSourceImpl(sl()),
   );
 
-
   // ─── Repositories ────────────────────────────────────────────────────────────
   sl.registerLazySingleton<GroupRepository>(
-        () => GroupRepositoryImpl(sl(), // Injects GroupRemoteDataSource
-      () {
-        final walletRepo = sl<WalletDatasource>();
-        final creds = walletRepo.credentials;
-        if (creds == null) throw Exception('Wallet not connected');
-        return creds;
-      },
-    ),
+        () => GroupRepositoryImpl(sl()),
   );
 
   // ─── Use Cases ───────────────────────────────────────────────────────────────
@@ -39,9 +31,11 @@ void registerGroupDependencies(GetIt sl) {
   sl.registerFactory(() => FlagDefaulter(sl<GroupRepository>()));
   sl.registerFactory(() => CastVote(sl<GroupRepository>()));
   sl.registerFactory(() => ResolveVote(sl<GroupRepository>()));
-  sl.registerFactory(() => GetGroupDetails(sl<GroupRepository>()));
-  sl.registerFactory(() => GetCycleProgress(sl<GroupRepository>()));
-  sl.registerFactory(() => GetMembers(sl<GroupRepository>()));
+  sl.registerLazySingleton(() => GetGroupDetails(sl()));
+  sl.registerLazySingleton(() => GetCycleProgress(sl()));
+  sl.registerLazySingleton(() => GetMembers(sl()));
+  sl.registerLazySingleton(() => GetUserGroups(sl()));
+  sl.registerLazySingleton(() => GetCreatedGroups(sl()));
   sl.registerFactory(() => HasContributed(sl<GroupRepository>()));
 
   // ─── BLoCs ───────────────────────────────────────────────────────────────────

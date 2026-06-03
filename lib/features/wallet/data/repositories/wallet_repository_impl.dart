@@ -20,6 +20,9 @@ class WalletRepositoryImpl implements WalletRepository {
   Future<Either<Failure, WalletInfo>> connectWallet(String privateKey) async {
     try{
       final wallet = await datasource.connectWallet(privateKey);
+      if (wallet == null) {
+        return const Left(WalletFailure('Wallet not connected'));
+      }
       return Right(wallet);
     }catch (e){
       return Left(WalletFailure(e.toString()));

@@ -6,7 +6,10 @@ abstract class HomeEvent extends Equatable {
 }
 
 class LoadGroupsEvent extends HomeEvent {
-  const LoadGroupsEvent();
+  final String walletAddress;
+  const LoadGroupsEvent({required this.walletAddress});
+  
+  @override List<Object?> get props => [walletAddress];
 }
 
 class AddGroupAddressEvent extends HomeEvent {

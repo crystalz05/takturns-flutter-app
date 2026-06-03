@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/core/utils/extensions.dart';
-import 'package:takturns_flutter_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:takturns_flutter_app/features/groups/presentation/blocs/join_group/join_group_bloc.dart';
 
 import '../blocs/join_group/join_group_event.dart';
@@ -23,7 +22,7 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
   @override
   void initState() {
     super.initState();
-    _addressController = TextEditingController(text: "0x1652e4BD4036A21D3cEfc8FB9b7D7fAFf835f80c");
+    _addressController = TextEditingController(text: "0x631cf4e5d6af81c69f6c663c7dbfca2faa4d63e8");
     // _addressController = TextEditingController(text: widget.initialAddress);
     if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
       _preview();
@@ -54,13 +53,10 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
       body: BlocConsumer<JoinGroupBloc, JoinGroupState>(
         listener: (context, state) {
           if (state is JoinGroupSuccess) {
-            HomeBloc.saveGroupAddress(state.groupAddress).then((_) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Joined group successfully!'), backgroundColor: AppColors.success),
-              );
-              context.pop();
-            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Joined group successfully!'), backgroundColor: AppColors.success),
+            );
+            context.pop();
           } else if (state is JoinGroupError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message), backgroundColor: AppColors.error),

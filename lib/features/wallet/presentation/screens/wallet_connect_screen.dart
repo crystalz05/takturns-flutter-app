@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:reown_appkit/reown_appkit.dart';
 import 'package:takturns_flutter_app/core/constants/app_assets.dart';
+import 'package:takturns_flutter_app/core/di/injection_container.dart';
 import 'package:takturns_flutter_app/core/theme/app_theme.dart';
 import 'package:takturns_flutter_app/core/utils/mask_wallet.dart';
 import 'package:takturns_flutter_app/features/wallet/presentation/bloc/wallet_bloc.dart';
@@ -17,17 +19,28 @@ class WalletConnectScreen extends StatefulWidget {
 }
 
 class _WalletConnectScreenState extends State<WalletConnectScreen> {
-  final _pkController = TextEditingController(text: "7ad85c6d7d3af578f92b17e016d37d54e09f1e2f216f0b536ce8d204841da2d3");
+  late ReownAppKitModal _appKit;
+
+  @override
+  void initState() {
+    super.initState();
+    _appKit = sl<ReownAppKitModal>();
+    _appKit.addListener(_onAppKitChange);
+  }
 
   @override
   void dispose() {
-    _pkController.dispose();
+    _appKit.removeListener(_onAppKitChange);
     super.dispose();
+  }
+
+  void _onAppKitChange() {
+    // When the session changes (connected/disconnected), tell the bloc to check
+    context.read<WalletBloc>().add(CheckStoredWalletEvent());
   }
 
   @override
   Widget build(BuildContext context) {
-    // Relying strictly on your AppColors mapping for component specific styling
     final Color badgeBg = AppColors.secondaryContainer;
     final Color badgeText = AppColors.onSecondaryContainer;
 
@@ -58,8 +71,6 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-
-                    // Profile Avatar stacked with Verification Badge
                     Center(
                       child: Stack(
                         alignment: Alignment.bottomRight,
@@ -84,7 +95,6 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
                               )
                             ),
                           ),
-                          // Verification Badge Circle
                           Container(
                             padding: const EdgeInsets.all(1.5),
                             decoration: BoxDecoration(
@@ -102,7 +112,6 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
                     ),
                     const SizedBox(height: 18),
 
-                    // Connection Status Pill Bubble
                     Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -123,7 +132,7 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              state is WalletConnected ? 'WalletConnected' : 'Wallet Disconnected',
+                              state is WalletConnected ? 'Wallet Connected' : 'Wallet Disconnected',
                               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                 color: state is WalletConnected ? AppColors.success : AppColors.error,
                                 fontWeight: FontWeight.bold,
@@ -135,9 +144,8 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Masked Address text presentation
                     Text(
-                      state is WalletConnected ? maskWalletAddress(state.wallet.address) : 'Connect Wallet',
+                      state is WalletConnected ? maskWalletAddress(state.wallet.address) : 'Connect Web3 Wallet',
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppColors.onSurface,
@@ -146,120 +154,23 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    const SizedBox(height: 32),
-
-                    // Manual Connection Action Layer (Using styling rules from context)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondary,
-                        foregroundColor: AppColors.onSecondary,
-                      ),
-                      // 1. Disable interaction while connecting
-                      onPressed: state is WalletConnecting
-                          ? null
-                          : () {
-                        // Your wallet connection logic here
-                      },
-                      // 2. Dynamic icon swap
-                      icon: state is WalletConnecting
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
-                        ),
-                      )
-                          : const Icon(Icons.lock_open_outlined, size: 18),
-                      // 3. Dynamic label update
-                      label: Text(
-                        state is WalletConnecting ? 'Connecting...' : 'Connect to Wallet',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-
-                    // Elegant Native "OR" Divider Layout
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            '',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.outline,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Plain Input Field Label Descriptor
-                    Text(
-                      'Private Key',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Configured Input Field utilizing your InputDecorationTheme global settings
-                    TextField(
-                      controller: _pkController,
-                      obscureText: true,
-                      style: TextStyle(color: AppColors.onSurface),
-                      decoration: const InputDecoration(
-                        hintText: 'Enter your private key',
-                        prefixIcon: Icon(Icons.key_outlined, color: AppColors.outline),
+                    // AppKit standard connection button
+                    Center(
+                      child: AppKitModalConnectButton(
+                        appKit: _appKit,
                       ),
                     ),
                     const SizedBox(height: 32),
 
-                    // Manual Connection Action Layer (Using styling rules from context)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondary,
-                        foregroundColor: AppColors.onSecondary,
-                      ),
-                      // 1. Disable the button by passing null if the state is connecting
-                      onPressed: state is WalletConnecting
-                          ? null
-                          : () {
-                        final pk = _pkController.text.trim();
-                        context.read<WalletBloc>().add(ConnectWalletEvent(pk));
-                      },
-                      // 2. Swap the icon for a small loading spinner when connecting
-                      icon: state is WalletConnecting
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          // Inherits the foreground color (white/grey) automatically
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
-                        ),
-                      )
-                          : const Icon(Icons.lock_open_outlined, size: 18),
-                      // 3. Optional: Update the label text dynamically to give user feedback
-                      label: Text(
-                        state is WalletConnecting ? 'Connecting...' : 'Connect Manually',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Forward to Dashboard Action Core (AppColors.primary)
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: state is WalletConnected ? AppColors.primary : Colors.grey,
                         foregroundColor: AppColors.onPrimary,
                       ),
                       onPressed: () {
-                        // if(state is WalletConnected) () =>
-                            context.push('/home');
+                        if(state is WalletConnected) {
+                          context.push('/home');
+                        }
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -271,22 +182,21 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Terminal Disconnect Text Trigger
-                    TextButton(
-                      onPressed: () {
-                        if(state is WalletConnected) {
+                    
+                    if (state is WalletConnected)
+                      TextButton(
+                        onPressed: () {
+                          _appKit.disconnect();
                           context.read<WalletBloc>().add(DisconnectWalletEvent());
-                        }
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.onSurfaceVariant,
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.onSurfaceVariant,
+                        ),
+                        child: const Text(
+                          'Disconnect',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                        ),
                       ),
-                      child: const Text(
-                        'Disconnect Wallet',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                      ),
-                    ),
                   ],
                 );
               },
@@ -297,4 +207,3 @@ class _WalletConnectScreenState extends State<WalletConnectScreen> {
     );
   }
 }
-
