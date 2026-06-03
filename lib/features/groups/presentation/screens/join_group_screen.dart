@@ -22,7 +22,7 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
   @override
   void initState() {
     super.initState();
-    _addressController = TextEditingController(text: "0x631cf4e5d6af81c69f6c663c7dbfca2faa4d63e8");
+    _addressController = TextEditingController(text: "0x0f704630220bd8fdf4640a2f3c12734fa8a107b3");
     // _addressController = TextEditingController(text: widget.initialAddress);
     if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
       _preview();

@@ -328,14 +328,18 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   Future<List<MemberModel>> getMembers(String groupAddress) async {
     final contract = _groupContract(groupAddress);
     
-    // 1. Fetch addresses and collateral from Supabase (much faster than looping getMembers on-chain)
-    final supabase = sl<SupabaseClient>();
-    final supabaseMembers = await supabase
-      .from('group_members')
-      .select('member_address, collateral_amount')
-      .eq('group_address', groupAddress.toLowerCase());
+    // 1. Fetch member addresses from contract
+    final membersResult = await _client.call(
+      contract: contract,
+      function: contract.function('getMembers'),
+      params: [],
+    );
+    
+    final addresses = (membersResult.first as List<dynamic>)
+        .map((e) => (e as EthereumAddress).hex)
+        .toList();
 
-    if (supabaseMembers.isEmpty) return [];
+    if (addresses.isEmpty) return [];
 
     // 2. Fetch current cycle
     final currentCycleResult = await _client.call(
@@ -345,24 +349,26 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     );
     final currentCycle = currentCycleResult.first as BigInt;
     
-    // 3. For each member found in Supabase, fetch their up-to-date state flags concurrently
+    // 3. For each member found, fetch their up-to-date state flags concurrently
     final List<MemberModel> models = [];
-    final futures = supabaseMembers.map((row) async {
-      final addrHex = row['member_address'] as String;
+    final futures = addresses.map((addrHex) async {
       final addr = EthereumAddress.fromHex(addrHex);
-      final collateralAmount = BigInt.tryParse(row['collateral_amount'].toString()) ?? BigInt.zero;
 
-      final mRes = await _client.call(
+      final mResFuture = _client.call(
         contract: contract,
         function: contract.function('members'),
         params: [addr],
       );
       
-      final hasContributedResult = await _client.call(
+      final hasContributedFuture = _client.call(
         contract: contract,
         function: contract.function('hasContributedThisCycle'),
         params: [currentCycle, addr],
       );
+      
+      final results = await Future.wait([mResFuture, hasContributedFuture]);
+      final mRes = results[0];
+      final hasContributedResult = results[1];
 
       return MemberModel(
         address: addrHex,
@@ -370,7 +376,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         hasCollected: mRes[1] as bool,
         hasDefaulted: mRes[2] as bool,
         isLeaving: mRes[3] as bool,
-        collateralDeposited: mRes[4] as BigInt, // Could also use collateralAmount from Supabase
+        collateralDeposited: mRes[4] as BigInt,
         hasContributed: hasContributedResult.first as bool,
       );
     });
@@ -409,6 +415,65 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     return (result.first as EthereumAddress).hex;
   }
 
+  Future<void> _syncGroupsOnChain(List<GroupModel> groups) async {
+    if (groups.isEmpty) return;
+    
+    final futures = <Future<void>>[];
+    for (int i = 0; i < groups.length; i++) {
+      futures.add(() async {
+        try {
+          final g = groups[i];
+          final contract = _groupContract(g.address);
+          
+          final stateFuture = _client.call(contract: contract, function: contract.function('state'), params: []);
+          final cycleFuture = _client.call(contract: contract, function: contract.function('currentCycle'), params: []);
+          final startTimeFuture = _client.call(contract: contract, function: contract.function('cycleStartTime'), params: []);
+          final configFuture = _client.call(contract: contract, function: contract.function('config'), params: []);
+          final membersFuture = _client.call(contract: contract, function: contract.function('getMembers'), params: []);
+          
+          final results = await Future.wait([stateFuture, cycleFuture, startTimeFuture, configFuture, membersFuture]);
+          
+          final stateInt = (results[0].first as BigInt).toInt();
+          final currentCycle = (results[1].first as BigInt).toInt();
+          final cycleStartTime = results[2].first as BigInt;
+          
+          final configList = results[3];
+          final adminAddr = (configList[0] as EthereumAddress).hex;
+          final tokenAddr = (configList[2] as EthereumAddress).hex;
+          final minG = (configList[3] as BigInt).toInt();
+          final contributionAmt = configList[4] as BigInt;
+          final cycleDur = configList[5] as BigInt;
+          final maxMems = (configList[6] as BigInt).toInt();
+          
+          final membersList = ((results[4] as List).first as List<dynamic>)
+              .map((e) => (e as EthereumAddress).hex)
+              .toList();
+          
+          int cycleDeadline = 0;
+          if (stateInt == AppConstants.stateActive) {
+            cycleDeadline = cycleStartTime.toInt() + cycleDur.toInt();
+          }
+          
+          groups[i] = g.copyWith(
+            admin: adminAddr,
+            token: tokenAddr,
+            minGrade: minG,
+            state: stateInt.toGroupState(),
+            currentCycle: currentCycle,
+            cycleDeadline: cycleDeadline,
+            contributionAmount: contributionAmt,
+            cycleDuration: cycleDur,
+            maxMembers: maxMems,
+            members: membersList,
+          );
+        } catch (e) {
+          print('DEBUG: Error syncing on-chain state for group ${groups[i].address}: $e');
+        }
+      }());
+    }
+    await Future.wait(futures);
+  }
+
   @override
   Future<List<GroupModel>> getUserGroups(String walletAddress) async {
     final supabase = sl<SupabaseClient>();
@@ -416,32 +481,31 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     try {
       final response = await supabase
           .from('group_members')
-          .select('group_address, collateral_amount, groups(*)')
+          .select('group_address, collateral_amount') // REMOVED groups(*) because FK was dropped
           .eq('member_address', walletAddress.toLowerCase());
 
       print('DEBUG: getUserGroups Supabase response: $response');
 
       final List<GroupModel> userGroups = [];
       for (final row in response) {
-        if (row['groups'] != null) {
-          final groupData = row['groups'] as Map<String, dynamic>;
-          
-          userGroups.add(GroupModel(
-            address: groupData['address'] ?? row['group_address'],
-            admin: groupData['admin'] ?? groupData['creator_address'] ?? '',
-            contributionAmount: BigInt.tryParse(groupData['contribution_amount']?.toString() ?? '0') ?? BigInt.zero,
-            cycleDuration: BigInt.tryParse(groupData['cycle_duration']?.toString() ?? '0') ?? BigInt.zero,
-            maxMembers: groupData['max_members'] ?? 0,
-            currentCycle: groupData['current_cycle'] ?? 0,
-            state: (groupData['state'] as int? ?? 0).toGroupState(),
-            members: const [], 
-            currentRecipient: groupData['current_recipient'] ?? '',
-            cycleDeadline: groupData['cycle_deadline'] ?? 0,
-            minGrade: groupData['min_grade'] ?? 0,
-            token: groupData['token'] ?? groupData['token_address'] ?? '',
-          ));
-        }
+        userGroups.add(GroupModel(
+          address: row['group_address'],
+          admin: '',
+          contributionAmount: BigInt.zero,
+          cycleDuration: BigInt.zero,
+          maxMembers: 0,
+          currentCycle: 0,
+          state: GroupState.pending,
+          members: const [], 
+          currentRecipient: '',
+          cycleDeadline: 0,
+          minGrade: 0,
+          token: '',
+        ));
       }
+      
+      await _syncGroupsOnChain(userGroups);
+      
       return userGroups;
     } catch (e, st) {
       print('DEBUG: Error in getUserGroups: $e\n$st');
@@ -479,48 +543,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         ));
       }
       
-      // We sync on-chain state for these groups
-      if (createdGroups.isNotEmpty) {
-        final futures = createdGroups.map((g) async {
-          try {
-            final contract = _groupContract(g.address);
-            
-            final stateFuture = _client.call(contract: contract, function: contract.function('state'), params: []);
-            final cycleFuture = _client.call(contract: contract, function: contract.function('currentCycle'), params: []);
-            final startTimeFuture = _client.call(contract: contract, function: contract.function('cycleStartTime'), params: []);
-            final configFuture = _client.call(contract: contract, function: contract.function('config'), params: []);
-            
-            final results = await Future.wait([stateFuture, cycleFuture, startTimeFuture, configFuture]);
-            
-            final stateInt = (results[0].first as BigInt).toInt();
-            final currentCycle = (results[1].first as BigInt).toInt();
-            final cycleStartTime = results[2].first as BigInt;
-            
-            final configList = results[3];
-            final contributionAmt = configList[4] as BigInt;
-            final cycleDur = configList[5] as BigInt;
-            final maxMems = (configList[6] as BigInt).toInt();
-            
-            int cycleDeadline = 0;
-            if (stateInt == AppConstants.stateActive) {
-              cycleDeadline = cycleStartTime.toInt() + cycleDur.toInt();
-            }
-            
-            final index = createdGroups.indexOf(g);
-            createdGroups[index] = g.copyWith(
-              state: stateInt.toGroupState(),
-              currentCycle: currentCycle,
-              cycleDeadline: cycleDeadline,
-              contributionAmount: contributionAmt,
-              cycleDuration: cycleDur,
-              maxMembers: maxMems,
-            );
-          } catch (e) {
-            print('DEBUG: Error syncing on-chain state for created group ${g.address}: $e');
-          }
-        });
-        await Future.wait(futures);
-      }
+      await _syncGroupsOnChain(createdGroups);
       
       return createdGroups;
     } catch (e, st) {

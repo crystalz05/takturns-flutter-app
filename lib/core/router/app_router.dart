@@ -61,7 +61,7 @@ final appRouter = GoRouter(
       }
     } else {
       if (isSplash || isWallet) {
-        return '/wallet';
+        return '/home';
       }
     }
     return null;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:reown_appkit/reown_appkit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:takturns_flutter_app/core/di/injection_container.dart';
 import 'package:takturns_flutter_app/core/router/app_router.dart';
@@ -101,6 +102,20 @@ class _AppKitInitializerState extends State<AppKitInitializer> {
           isTestNetwork: true,
         ),
       ]);
+
+      // Safely clear Reown/WalletConnect cache in case of corruption
+      debugPrint('[TakTurns] AppKitInitializer: Clearing Reown cache to prevent deadlocks...');
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final keys = prefs.getKeys().toList();
+        for (final key in keys) {
+          if (key.startsWith('wc_') || key.startsWith('reown_') || key.startsWith('w3m_')) {
+            await prefs.remove(key);
+          }
+        }
+      } catch (e) {
+        debugPrint('[TakTurns] AppKitInitializer: Failed to clear cache: $e');
+      }
 
       debugPrint('[TakTurns] AppKitInitializer: Awaiting appKit.init()...');
       await appKit.init().timeout(const Duration(seconds: 15), onTimeout: () {
