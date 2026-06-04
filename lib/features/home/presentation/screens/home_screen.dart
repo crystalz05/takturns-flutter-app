@@ -242,11 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.all(16),
               ),
-              onPressed: () => context.pushNamed('join-group').then((_) {
-                if (!context.mounted) return;
-                final ws = context.read<WalletBloc>().state;
-                if (ws is WalletConnected) context.read<HomeBloc>().add(LoadGroupsEvent(walletAddress: ws.wallet.address));
-              }),
+              onPressed: () => context.pushNamed('join-group'),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [

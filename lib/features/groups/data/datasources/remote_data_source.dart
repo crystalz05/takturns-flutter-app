@@ -91,6 +91,13 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
       }
     }
 
+    // Launch the connected wallet app (e.g. MetaMask) so the user can see the prompt
+    try {
+      _appKit.launchConnectedWallet();
+    } catch (e) {
+      print('DEBUG: Could not launch connected wallet: $e');
+    }
+
     final result = await _appKit.request(
       topic: _appKit.session!.topic,
       chainId: targetChainId,

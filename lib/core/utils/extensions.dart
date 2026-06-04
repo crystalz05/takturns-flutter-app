@@ -18,6 +18,7 @@ extension BigIntFormatting on BigInt {
   }
 }
 
+
 extension AddressFormatting on String {
   /// Truncate Ethereum address: 0x1234...5678
   String get truncated {
